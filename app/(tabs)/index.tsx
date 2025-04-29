@@ -1,125 +1,249 @@
-import { Image, StyleSheet, Platform, View } from 'react-native';
+import { StyleSheet, Platform, View, Text } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { useSuperwall } from '@/hooks/useSuperwall';
-import { useOnboarding } from '@/contexts/OnboardingContext';
-import { useRouter } from 'expo-router';
-import { SUPERWALL_TRIGGERS } from '@/config/superwall';
+
+// --- Define placeholder components --- //
+const TimerDisplay = () => {
+  return (
+    <View style={styles.timerCircle}>
+      {/* Timer Text - Using standard Text for debugging */}
+      <Text style={styles.timerText}>25:00</Text>
+      {/* Mode Text */}
+      <ThemedText style={styles.modeText}>Easy Mode</ThemedText>
+    </View>
+  );
+};
+
+const StartFocusButton = () => {
+  return (
+    <TouchableOpacity style={styles.startButtonContainer}>
+      <ThemedText style={styles.startButtonText}>▶ Start Focus</ThemedText>
+    </TouchableOpacity>
+  );
+};
+// ----------------------------------- //
 
 export default function HomeScreen() {
-  const { setIsOnboarded } = useOnboarding();
-  const { showPaywall } = useSuperwall();
-  const router = useRouter();
-
-  const handleRestartOnboarding = async () => {
-    await setIsOnboarded(false);
-    router.push('/onboarding');
-  };
-
-  const handleShowPaywall = () => {
-    showPaywall(SUPERWALL_TRIGGERS.ONBOARDING);
-  };
-
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button} onPress={handleShowPaywall}>
-          <ThemedText type="defaultSemiBold" style={styles.buttonText}>
-            Show Paywall
-          </ThemedText>
-        </TouchableOpacity>
+    <ThemedView style={styles.container}>
+      <View style={styles.topBar}>
+        <View style={styles.streakContainer}>
+          <Ionicons name="flame-outline" size={24} color="white" />
+          <ThemedText style={styles.streakText}>0</ThemedText>
+        </View>
 
-        <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={handleRestartOnboarding}>
-          <ThemedText type="defaultSemiBold" style={styles.secondaryButtonText}>
-            Restart Onboarding
-          </ThemedText>
-        </TouchableOpacity>
+        <View style={styles.xpContainer}>
+          <View style={styles.xpLevelHeader}>
+            <ThemedText style={styles.xpCurrentLevelText}>Level 1</ThemedText>
+            <ThemedText style={styles.xpNextLevelText}>Level 2</ThemedText>
+          </View>
+          <View style={styles.xpProgressContainer}>
+            <View style={styles.xpProgressBar}>
+              <View
+                style={[styles.xpProgress, { width: '30%' }]}
+              />
+            </View>
+            <View style={styles.xpInfoContainer}>
+              <ThemedText style={styles.xpRemaining}>50 / 150 XP</ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {/* Settings Icon (Right) */}
+        <Ionicons name="settings-outline" size={24} color="white" />
       </View>
-    </ParallaxScrollView>
+
+      {/* Center Timer Section */}
+      <View style={styles.centerContent}>
+        <TimerDisplay />
+        <StartFocusButton />
+      </View>
+
+      {/* Bottom Controls Section */}
+      <View style={styles.bottomControls}>
+        {/* Duration Buttons Container */}
+        <View style={styles.durationContainer}>
+          <TouchableOpacity style={styles.controlButton}>
+            <ThemedText style={styles.controlButtonText}>25m</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton}>
+            <ThemedText style={styles.controlButtonText}>50m</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton}>
+            <ThemedText style={styles.controlButtonText}>90m</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton}>
+            <ThemedText style={styles.controlButtonText}>+</ThemedText>
+          </TouchableOpacity>
+        </View>
+        {/* Mode Buttons Container */}
+        <View style={styles.modeContainer}>
+          <TouchableOpacity style={[styles.controlButton, styles.controlButtonSelected]}>
+            <ThemedText style={styles.controlButtonSelectedText}>Easy Mode</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton}>
+            <ThemedText style={styles.controlButtonText}>Hard Mode</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? 40 : 60,
+    paddingHorizontal: 16,
+    backgroundColor: '#111111',
+  },
+  topBar: {
+    height: 60,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  streakContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-  buttonContainer: {
-    marginTop: 24,
-    gap: 12,
-  },
-  button: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: '#0A7EA4',
-  },
-  buttonText: {
+  streakText: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  secondaryButton: {
-    backgroundColor: '#0A7EA420',
+  xpContainer: {
+    flex: 1,
+    marginHorizontal: 15,
+    gap: 4,
   },
-  secondaryButtonText: {
-    color: '#0A7EA4',
+  xpLevelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  xpCurrentLevelText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  xpNextLevelText: {
+    fontSize: 14,
+    color: '#8e8e93',
+    fontWeight: 'bold',
+  },
+  xpProgressContainer: {
+    gap: 4,
+  },
+  xpProgressBar: {
+    height: 4,
+    backgroundColor: '#2c2c2e',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  xpProgress: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+  },
+  xpInfoContainer: {
+    alignItems: 'flex-end',
+  },
+  xpRemaining: {
+    fontSize: 12,
+    color: '#8e8e93',
+    fontWeight: '500',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 40,
+  },
+  timerCircle: {
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    borderWidth: 5,
+    borderColor: '#333333',
+    justifyContent: 'center',
+    alignItems: 'center',
+    // May need a slight gap if text elements are too close
+    gap: 5,
+  },
+  timerText: {
+    fontSize: 72, // Large font size
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    // Ensure text fits if time gets longer, maybe adjust letter spacing?
+    // letterSpacing: -1, 
+  },
+  modeText: {
+    fontSize: 18,
+    color: '#34C759', // Green color like the screenshot
+    fontWeight: '600',
+  },
+  startButtonContainer: {
+    backgroundColor: '#2C2C2E', // Dark grey background (iOS systemGray5)
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 30, // Pill shape
+    // Add some elevation/shadow maybe?
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  bottomControls: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 15,
+  },
+  durationContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center', // Center buttons horizontally
+    width: '100%', // Ensure container takes width for centering
+  },
+  modeContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center', // Center buttons horizontally
+    width: '100%', // Ensure container takes width for centering
+  },
+  // Shared style for duration/mode buttons
+  controlButton: {
+    backgroundColor: '#2C2C2E', // Dark grey bg
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20, // Rounded rectangle
+    minWidth: 55, // Ensure buttons have some minimum width
+    alignItems: 'center', // Center text inside button
+  },
+  controlButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  // Style for the selected button
+  controlButtonSelected: {
+    backgroundColor: '#34C759', // Green background for selected
+  },
+  controlButtonSelectedText: {
+    color: '#FFFFFF', // White text for selected
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

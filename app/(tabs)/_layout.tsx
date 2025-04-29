@@ -16,16 +16,12 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
+        // tabBarButton: HapticTab, // No longer needed if tabBar is null
+        // tabBarBackground: TabBarBackground, // No longer needed if tabBar is null
+        // tabBarStyle: Platform.select({ ... }), // No longer needed if tabBar is null
+      }}
+      tabBar={() => null} // Add this prop to hide the tab bar completely
+    >
       <Tabs.Screen
         name="index"
         options={{
