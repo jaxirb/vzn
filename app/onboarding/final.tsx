@@ -1,24 +1,50 @@
-import { StyleSheet, View, ScrollView } from 'react-native';
+import { StyleSheet, View, ScrollView, Alert } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useSuperwall } from '@/hooks/useSuperwall';
-import { useOnboarding } from '@/contexts/OnboardingContext';
 import { SUPERWALL_TRIGGERS } from '@/config/superwall';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { MaterialCommunityIcons as IconType } from '@expo/vector-icons';
+import { markOnboardingComplete } from '@/services/supabase';
+import { useState } from 'react';
+import { useRouter } from 'expo-router';
 
 export default function FinalScreen() {
   const { showPaywall } = useSuperwall();
-  const { setIsOnboarded } = useOnboarding();
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleGetStarted = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    
+    let dbUpdateSuccessful = false;
     try {
+      console.log('[Onboarding Final] Showing paywall...');
       await showPaywall(SUPERWALL_TRIGGERS.ONBOARDING);
-      setIsOnboarded(true);
-    } catch (error) {
-      console.error('Failed to show paywall:', error);
+      console.log('[Onboarding Final] Paywall shown (or skipped).');
+
+      try {
+        console.log('[Onboarding Final] Marking onboarding complete in DB...');
+        await markOnboardingComplete();
+        dbUpdateSuccessful = true;
+        console.log('[Onboarding Final] Onboarding marked complete in DB.');
+        
+      } catch (dbError) {
+        console.error('[Onboarding Final] Failed to mark onboarding complete in DB:', dbError);
+        Alert.alert("Error", "Could not save onboarding status. Please try again.");
+      }
+
+    } catch (paywallError) {
+      console.error('[Onboarding Final] Failed to show paywall:', paywallError);
+    } finally {
+      setIsLoading(false);
+      if (dbUpdateSuccessful) {
+        console.log("[Onboarding Final] DB updated, navigating to tabs...");
+        router.replace('/(tabs)');
+      }
     }
   };
 
@@ -43,9 +69,13 @@ export default function FinalScreen() {
           </View>
         </ScrollView>
 
-        <TouchableOpacity style={styles.button} onPress={handleGetStarted}>
+        <TouchableOpacity 
+          style={[styles.button, isLoading && styles.buttonDisabled]} 
+          onPress={handleGetStarted}
+          disabled={isLoading}
+        >
           <ThemedText type="defaultSemiBold" style={styles.buttonText}>
-            Get Started Now
+            {isLoading ? 'Processing...' : 'Get Started Now'}
           </ThemedText>
         </TouchableOpacity>
       </SafeAreaView>
@@ -127,5 +157,8 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 18,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 }); 

@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter, useSegments } from 'expo-router';
 
 type OnboardingContextType = {
   isOnboarded: boolean;
@@ -13,24 +12,10 @@ const STORAGE_KEY = 'hasCompletedOnboarding';
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
-  const segments = useSegments();
-  const router = useRouter();
 
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
-
-  useEffect(() => {
-    if (isOnboarded === null) return;
-
-    const inAuthGroup = segments[0] === 'onboarding';
-
-    if (!isOnboarded && !inAuthGroup) {
-      router.replace('/onboarding');
-    } else if (isOnboarded && inAuthGroup) {
-      router.replace('/');
-    }
-  }, [isOnboarded, segments]);
 
   const checkOnboardingStatus = async () => {
     try {

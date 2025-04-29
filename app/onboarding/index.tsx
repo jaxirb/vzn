@@ -1,43 +1,30 @@
-import { StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ThemedText } from '@/components/ThemedText';
+import React from 'react';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
-import { TouchableOpacity } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ThemedText } from '@/components/ThemedText';
+import { useRouter } from 'expo-router';
 
-export default function WelcomeScreen() {
+export default function OnboardingIndexScreen() {
   const router = useRouter();
 
   const handleNext = () => {
+    console.log("Proceeding from onboarding index to problem...");
     router.push('/onboarding/problem');
   };
 
   return (
     <ThemedView style={styles.container}>
-      <StatusBar style="auto" />
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
-          <View style={styles.main}>
-            <MaterialCommunityIcons name="star" size={64} color="#0A7EA4" />
-            <ThemedText type="title" style={styles.title}>
-              Your App Name
-            </ThemedText>
-            <View style={styles.subtitleContainer}>
-              <ThemedText style={styles.subtitle}>
-                A short, compelling tagline that captures your app's value
-              </ThemedText>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleNext}>
-            <ThemedText type="defaultSemiBold" style={styles.buttonText}>
-              Get Started
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={styles.content}>
+        <ThemedText type="title">Welcome to Onboarding!</ThemedText>
+        <ThemedText style={styles.text}>
+          This is the placeholder onboarding screen.
+        </ThemedText>
+      </View>
+      <TouchableOpacity style={styles.button} onPress={handleNext}>
+        <ThemedText type="defaultSemiBold" style={styles.buttonText}>
+          Continue
+        </ThemedText>
+      </TouchableOpacity>
     </ThemedView>
   );
 }
@@ -45,41 +32,25 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  safeArea: {
-    flex: 1,
+    justifyContent: 'space-between', // Pushes button to bottom
+    padding: 20,
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'space-between',
-    paddingVertical: 24,
+    flex: 1, // Allows content to take up space
+    justifyContent: 'center', // Center content vertically
+    alignItems: 'center', // Center content horizontally
   },
-  main: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
-  },
-  title: {
-    fontSize: 36,
+  text: {
+    fontSize: 16,
     textAlign: 'center',
-    paddingHorizontal: 16,
-  },
-  subtitleContainer: {
-    paddingHorizontal: 32,
-  },
-  subtitle: {
-    fontSize: 18,
-    opacity: 0.7,
-    textAlign: 'center',
-    lineHeight: 24,
+    marginVertical: 20,
   },
   button: {
-    backgroundColor: '#0A7EA4',
-    padding: 20,
-    borderRadius: 16,
+    backgroundColor: '#0A7EA4', // Example color
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 16, // Margin at the bottom
   },
   buttonText: {
     color: 'white',

@@ -48,7 +48,11 @@
       },
       "eas": {
         "projectId": "e55fcdea-13e2-4c3b-a4c3-59c174184eb5"
-      }
+      },
+      "EXPO_PUBLIC_SUPABASE_URL": "https://admifcdssugqiyxskxcq.supabase.co",
+      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkbWlmY2Rzc3VncWl5eHNreGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NzczMzcsImV4cCI6MjA2MTQ1MzMzN30.OvraosxvFFOvuUaTp4lTQGjNE4vwRxc6dLPFV2uiBg8",
+      "EXPO_PUBLIC_SUPERWALL_API_KEY_IOS": "pk_20e80369f45370cb87384a63ee08add892019cf66cec499a",
+      "EXPO_PUBLIC_SUPERWALL_API_KEY_ANDROID": "YOUR_ANDROID_SUPERWALL_KEY_HERE"
     }
   }
 }
