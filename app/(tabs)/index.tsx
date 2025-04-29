@@ -1,26 +1,28 @@
 import { StyleSheet, Platform, View, Text } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+// import { LinearGradient } from 'expo-linear-gradient'; // Reverted: Removed import
 
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { ThemedView } from '@/components/ThemedView'; // Reverted: Uncommented import
 
 // --- Define placeholder components --- //
 const TimerDisplay = () => {
   return (
     <View style={styles.timerCircle}>
-      {/* Timer Text - Using standard Text for debugging */}
-      <Text style={styles.timerText}>25:00</Text>
-      {/* Mode Text */}
-      <ThemedText style={styles.modeText}>Easy Mode</ThemedText>
+      {/* Start button moved inside the circle */}
+      <StartFocusButton />
+      {/* Timer Text - MOVED below circle */}
     </View>
   );
 };
 
 const StartFocusButton = () => {
   return (
-    <TouchableOpacity style={styles.startButtonContainer}>
-      <ThemedText style={styles.startButtonText}>▶ Start Focus</ThemedText>
+    // Use new style for icon-only button
+    <TouchableOpacity style={styles.startButtonIconContainer}>
+      <Ionicons name="play" size={24} color="white" />
     </TouchableOpacity>
   );
 };
@@ -30,11 +32,19 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.topBar}>
+        {/* Streak Indicator (Left) */}
         <View style={styles.streakContainer}>
-          <Ionicons name="flame-outline" size={24} color="white" />
-          <ThemedText style={styles.streakText}>0</ThemedText>
+          <Ionicons name="flash" size={20} color="#FFD700" />
+          <ThemedText style={styles.streakText}>3</ThemedText>
         </View>
 
+        {/* Settings Icon (Right) */}
+        <MaterialCommunityIcons name="cog" size={20} color="white" />
+      </View>
+
+      {/* XP Section */}
+      <View style={styles.xpSectionContainer}>
+        {/* Re-inserting XP Bar structure here */}
         <View style={styles.xpContainer}>
           <View style={styles.xpLevelHeader}>
             <ThemedText style={styles.xpCurrentLevelText}>Level 1</ThemedText>
@@ -48,46 +58,53 @@ export default function HomeScreen() {
             </View>
             <View style={styles.xpInfoContainer}>
               <ThemedText style={styles.xpRemaining}>50 / 150 XP</ThemedText>
+              <Ionicons name="chevron-forward-outline" size={16} color="#8e8e93" />
             </View>
           </View>
         </View>
-
-        {/* Settings Icon (Right) */}
-        <Ionicons name="settings-outline" size={24} color="white" />
       </View>
 
       {/* Center Timer Section */}
       <View style={styles.centerContent}>
         <TimerDisplay />
-        <StartFocusButton />
+        {/* Timer text moved here, below the circle */}
+        <Text style={styles.timerText}>25:00</Text>
+
+        {/* Group the controls */}
+        <View style={styles.controlsGroup}>
+          {/* Duration Buttons Container */}
+          <View style={styles.durationContainer}>
+            <TouchableOpacity style={[styles.controlButton, styles.controlButtonSelected]}>
+              <Text style={styles.controlButtonSelectedText}>25m</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton}>
+              <Text style={styles.controlButtonText}>50m</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton}>
+              <Text style={styles.controlButtonText}>90m</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton}>
+              <Text style={[styles.controlButtonText, { fontSize: 20, lineHeight: 20 }]}>+</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Mode Buttons Container */}
+          <View style={styles.modeContainer}>
+            <TouchableOpacity style={[styles.controlButton, styles.controlButtonSelected]}>
+              <MaterialCommunityIcons name="clock-outline" size={16} color="#34C759" style={styles.modeIcon} />
+              <Text style={styles.controlButtonSelectedModeText}>Easy Mode</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton}>
+              <MaterialCommunityIcons name="shield-outline" size={16} color="#8e8e93" style={styles.modeIcon} />
+              <Text style={styles.controlButtonText}>Hard Mode</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
       </View>
 
-      {/* Bottom Controls Section */}
+      {/* Bottom Controls Section (Start Button REMOVED) */}
       <View style={styles.bottomControls}>
-        {/* Duration Buttons Container */}
-        <View style={styles.durationContainer}>
-          <TouchableOpacity style={styles.controlButton}>
-            <ThemedText style={styles.controlButtonText}>25m</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton}>
-            <ThemedText style={styles.controlButtonText}>50m</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton}>
-            <ThemedText style={styles.controlButtonText}>90m</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton}>
-            <ThemedText style={styles.controlButtonText}>+</ThemedText>
-          </TouchableOpacity>
-        </View>
-        {/* Mode Buttons Container */}
-        <View style={styles.modeContainer}>
-          <TouchableOpacity style={[styles.controlButton, styles.controlButtonSelected]}>
-            <ThemedText style={styles.controlButtonSelectedText}>Easy Mode</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton}>
-            <ThemedText style={styles.controlButtonText}>Hard Mode</ThemedText>
-          </TouchableOpacity>
-        </View>
+        {/* <StartFocusButton /> */}
       </View>
     </ThemedView>
   );
@@ -98,14 +115,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Platform.OS === 'android' ? 40 : 60,
     paddingHorizontal: 16,
-    backgroundColor: '#111111',
+    backgroundColor: '#111111', // Reverted: Added solid background color back
   },
   topBar: {
     height: 60,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 4,
   },
   streakContainer: {
     flexDirection: 'row',
@@ -115,12 +132,104 @@ const styles = StyleSheet.create({
   streakText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: 'ChakraPetch-SemiBold',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingBottom: 20,
+  },
+  controlsGroup: {
+    alignItems: 'center',
+    width: '90%',
+  },
+  timerCircle: {
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    borderWidth: 5,
+    borderColor: '#333333',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timerText: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontFamily: 'ChakraPetch-SemiBold',
+    marginTop: 15,
+  },
+  modeText: { // Style remains but component is removed
+    fontSize: 18,
+    color: '#34C759',
+    fontWeight: '600',
+  },
+  startButtonIconContainer: {
+    padding: 20,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomControls: {
+    justifyContent: 'center',
+    height: 60,
+  },
+  durationContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    marginBottom: 10,
+    backgroundColor: '#141414',
+    borderRadius: 12,
+    padding: 5,
+  },
+  modeContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    backgroundColor: '#141414',
+    borderRadius: 12,
+    padding: 5,
+  },
+  controlButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    minWidth: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 5,
+  },
+  controlButtonText: {
+    color: '#8e8e93',
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+  },
+  controlButtonSelected: {
+    backgroundColor: 'rgba(44, 44, 46, 0.8)',
+  },
+  controlButtonSelectedText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+  },
+  controlButtonSelectedModeText: {
+    color: '#34C759',
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+  },
+  modeIcon: {
+    // Ensure icons have contrast - using white/green directly in component
+  },
+  xpSectionContainer: {
+    backgroundColor: '#141414',
+    borderRadius: 12,
+    marginBottom: 16,
   },
   xpContainer: {
-    flex: 1,
-    marginHorizontal: 15,
     gap: 4,
+    padding: 12,
   },
   xpLevelHeader: {
     flexDirection: 'row',
@@ -131,20 +240,20 @@ const styles = StyleSheet.create({
   xpCurrentLevelText: {
     fontSize: 14,
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontFamily: 'Inter-Medium',
   },
   xpNextLevelText: {
     fontSize: 14,
-    color: '#8e8e93',
-    fontWeight: 'bold',
+    color: 'rgba(52, 199, 89, 0.7)',
+    fontFamily: 'Inter-Medium',
   },
   xpProgressContainer: {
     gap: 4,
   },
   xpProgressBar: {
-    height: 4,
-    backgroundColor: '#2c2c2e',
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: '#333333',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   xpProgress: {
@@ -153,97 +262,16 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: '#FFFFFF',
-    borderRadius: 2,
+    borderRadius: 3,
   },
   xpInfoContainer: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   xpRemaining: {
     fontSize: 12,
     color: '#8e8e93',
-    fontWeight: '500',
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 40,
-  },
-  timerCircle: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    borderWidth: 5,
-    borderColor: '#333333',
-    justifyContent: 'center',
-    alignItems: 'center',
-    // May need a slight gap if text elements are too close
-    gap: 5,
-  },
-  timerText: {
-    fontSize: 72, // Large font size
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    // Ensure text fits if time gets longer, maybe adjust letter spacing?
-    // letterSpacing: -1, 
-  },
-  modeText: {
-    fontSize: 18,
-    color: '#34C759', // Green color like the screenshot
-    fontWeight: '600',
-  },
-  startButtonContainer: {
-    backgroundColor: '#2C2C2E', // Dark grey background (iOS systemGray5)
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 30, // Pill shape
-    // Add some elevation/shadow maybe?
-  },
-  startButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  bottomControls: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 15,
-  },
-  durationContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center', // Center buttons horizontally
-    width: '100%', // Ensure container takes width for centering
-  },
-  modeContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center', // Center buttons horizontally
-    width: '100%', // Ensure container takes width for centering
-  },
-  // Shared style for duration/mode buttons
-  controlButton: {
-    backgroundColor: '#2C2C2E', // Dark grey bg
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20, // Rounded rectangle
-    minWidth: 55, // Ensure buttons have some minimum width
-    alignItems: 'center', // Center text inside button
-  },
-  controlButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  // Style for the selected button
-  controlButtonSelected: {
-    backgroundColor: '#34C759', // Green background for selected
-  },
-  controlButtonSelectedText: {
-    color: '#FFFFFF', // White text for selected
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: 'ChakraPetch-SemiBold',
   },
 });
