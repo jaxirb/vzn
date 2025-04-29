@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useEffect, useRef } from 'react';
 import * as Haptics from 'expo-haptics'; // Import Haptics
+import { BlurView } from 'expo-blur'; // Import BlurView
 // import { LinearGradient } from 'expo-linear-gradient'; // Reverted: Removed import
 
 import { ThemedText } from '@/components/ThemedText';
@@ -149,8 +150,8 @@ export default function HomeScreen() {
         {/* Re-inserting XP Bar structure here */}
         <View style={styles.xpContainer}>
           <View style={styles.xpLevelHeader}>
-            <ThemedText style={styles.xpCurrentLevelText}>Level 1</ThemedText>
-            <ThemedText style={styles.xpNextLevelText}>Level 2</ThemedText>
+            <ThemedText style={styles.xpCurrentLevelText}>LVL 1</ThemedText>
+            <ThemedText style={styles.xpNextLevelText}>LVL 2</ThemedText>
           </View>
           <View style={styles.xpProgressContainer}>
             <View style={styles.xpProgressBar}>
@@ -248,10 +249,9 @@ export default function HomeScreen() {
           </View>
           {/* Tooltip Area */}
           <View style={styles.tooltipContainer}>
-            {/* Render Animated.View, control visibility via opacity */}
             <Animated.View style={{ opacity: tooltipOpacity }}>
               <Text style={styles.hardModeTooltip}>
-                Canceling session loses progress, 2XP for completion
+                2XP for completion, canceling session loses progress
               </Text>
             </Animated.View>
           </View>
@@ -273,24 +273,24 @@ export default function HomeScreen() {
           setIsPickerVisible(false);
         }}
       >
-        {/* Task 9.4: Backdrop */}
-        <Pressable 
-          style={styles.modalBackdrop} 
-          onPress={() => setIsPickerVisible(false)} // Close on backdrop press
-        >
-          {/* Task 9.5: Content Container */}
-          <Pressable onPress={(e) => e.stopPropagation()}> 
-            {/* Prevent closing modal when clicking inside picker area */}
-             <View style={styles.modalContentContainer}> 
-                {/* Task 9.6: Render Picker */}
-                <CustomDurationPicker 
-                  onSelectDuration={handleDurationSelect}
-                  onClose={() => setIsPickerVisible(false)}
-                  initialDuration={0}
-                />
-            </View>
-          </Pressable>
-        </Pressable>
+        {/* Replace Pressable background with BlurView + Pressable */}
+        <BlurView intensity={50} tint="dark" style={styles.modalBackdrop}>
+            <Pressable 
+              style={styles.modalPressableArea} // Use a style that fills the area for pressing
+              onPress={() => setIsPickerVisible(false)} // Close on backdrop press
+            >
+                {/* Prevent closing modal when clicking inside picker area */}
+                <Pressable onPress={(e) => e.stopPropagation()}>
+                    <View style={styles.modalContentContainer}>
+                        <CustomDurationPicker 
+                        onSelectDuration={handleDurationSelect}
+                        onClose={() => setIsPickerVisible(false)}
+                        initialDuration={0}
+                        />
+                    </View>
+                </Pressable>
+            </Pressable>
+        </BlurView>
       </Modal>
     </ThemedView>
   );
@@ -432,12 +432,12 @@ const styles = StyleSheet.create({
   xpCurrentLevelText: {
     fontSize: 14,
     color: '#FFFFFF',
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'ChakraPetch-SemiBold',
   },
   xpNextLevelText: {
     fontSize: 14,
-    color: 'rgba(52, 199, 89, 0.7)',
-    fontFamily: 'Inter-Medium',
+    color: '#8e8e93',
+    fontFamily: 'ChakraPetch-SemiBold',
   },
   xpProgressContainer: {
     gap: 4,
@@ -467,15 +467,18 @@ const styles = StyleSheet.create({
     fontFamily: 'ChakraPetch-SemiBold',
   },
   modalBackdrop: {
-    flex: 1, // Ensure it fills the screen
+    flex: 1,
+    // No direct styling needed here, BlurView handles it
+  },
+  modalPressableArea: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Semi-transparent black
+    backgroundColor: 'rgba(0, 0, 0, 0.2)', // Add darkening layer
   },
   modalContentContainer: {
-     // The CustomDurationPicker already has its own container style
-     // This view just ensures it's placed correctly within the backdrop pressable
-     // No specific centering styles needed here if the picker itself is sized
+     // Styles for positioning the picker within the pressable area
+     // Ensure it allows the picker's own container to define size
   },
   tooltipContainer: {
     height: 30,

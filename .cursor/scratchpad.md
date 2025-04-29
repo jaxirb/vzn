@@ -76,6 +76,16 @@ hi this is the scratch pad
         - **12.4:** Conditional icon color (incl. Hard mode red)
     - **Success Criteria:** The mode buttons are implemented correctly and can be used to select a mode.
 
+13. **Task 13: Implement Conditional 2XP Indicator (Superseded by Tooltip)**
+    - **Goal:** Implement the logic for displaying a 2XP indicator based on the focus mode.
+    - **Sub-Tasks:**
+        - **13.1:** Locate timer Text component.
+        - **13.2:** Add View below timer Text.
+        - **13.3:** Conditionally render "2XP".
+        - **13.4:** Add style hardModeIndicator.
+        - **13.5:** Note: Feature replaced by Hard Mode tooltip in subsequent steps.
+    - **Success Criteria:** The 2XP indicator is displayed based on the focus mode.
+
 ## ✅ Project Status Board
 
 *(Updating based on current state)*
@@ -112,3 +122,9 @@ hi this is the scratch pad
   - [x] 12.2: Conditional button style
   - [x] 12.3: Conditional text style (incl. Hard mode red)
   - [x] 12.4: Conditional icon color (incl. Hard mode red)
+- [x] Task 13: Implement Conditional 2XP Indicator (Superseded by Tooltip)
+  - [x] 13.1: Locate timer Text component.
+  - [x] 13.2: Add View below timer Text.
+  - [x] 13.3: Conditionally render "2XP".
+  - [x] 13.4: Add style hardModeIndicator.
+  - [x] Note: Feature replaced by Hard Mode tooltip in subsequent steps.

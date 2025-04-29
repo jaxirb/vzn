@@ -79,9 +79,6 @@ export default function CustomDurationPicker({ onSelectDuration, onClose, initia
     selectedValue: number
   ) => (
     <View style={styles.pickerColumn}>
-      <View style={styles.pickerMask}>
-        <View style={styles.pickerSelectionBand} pointerEvents="none" />
-      </View>
       <ScrollView
         ref={scrollRef}
         style={styles.pickerScrollView}
@@ -128,26 +125,25 @@ export default function CustomDurationPicker({ onSelectDuration, onClose, initia
         ))}
         <View style={{ height: (150 - itemHeight) / 2 }} />
       </ScrollView>
-      <View style={styles.pickerGradientTop} pointerEvents="none" />
-      <View style={styles.pickerGradientBottom} pointerEvents="none" />
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      {/* REMOVED Header View */}
+      {/* <View style={styles.header}>
         <Text style={styles.title}>Custom Duration</Text>
-      </View>
+      </View> */}
 
       <View style={styles.pickerContainer}>
         <View style={styles.pickerWrapper}>
           {renderPickerColumn('hours', hours, hoursScrollRef, selectedHour)}
-          <Text style={styles.pickerLabel}>hours</Text>
+          <Text style={styles.pickerLabel}>HRS</Text>
         </View>
         <Text style={styles.pickerSeparator}>:</Text>
         <View style={styles.pickerWrapper}>
           {renderPickerColumn('minutes', minutes, minutesScrollRef, selectedMinute)}
-          <Text style={styles.pickerLabel}>min</Text>
+          <Text style={styles.pickerLabel}>MIN</Text>
         </View>
       </View>
 
@@ -175,27 +171,15 @@ export default function CustomDurationPicker({ onSelectDuration, onClose, initia
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1C1C1E',
     borderRadius: 24,
     padding: 24,
-    width: '85%',
-    maxWidth: 360,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.44,
-    shadowRadius: 10.32,
-    elevation: 16,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 36,
   },
   title: {
     fontSize: 22,
-    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#FFFFFF',
     letterSpacing: -0.5,
     lineHeight: 28,
@@ -214,19 +198,9 @@ const styles = StyleSheet.create({
   pickerColumn: {
     width: 85,
     height: 160,
-    backgroundColor: '#2C2C2E',
     borderRadius: 16,
     position: 'relative',
     overflow: 'hidden',
-  },
-  pickerMask: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1,
-    pointerEvents: 'none',
   },
   pickerScrollView: {
     height: '100%',
@@ -240,80 +214,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedItem: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    // Remove background color
+    // backgroundColor: 'rgba(99, 102, 241, 0.15)',
   },
   pickerItemText: {
     fontSize: 32,
     color: '#6B7280',
-    fontWeight: '500',
+    fontFamily: 'ChakraPetch-Medium',
     fontVariant: ['tabular-nums'],
   },
   selectedItemText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: '#E5E5EA',
+    fontFamily: 'ChakraPetch-SemiBold',
+    fontSize: 32,
+    fontVariant: ['tabular-nums'],
   },
   pickerLabel: {
     fontSize: 15,
     color: '#6B7280',
-    fontWeight: '500',
+    fontFamily: 'ChakraPetch-SemiBold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   pickerSeparator: {
     fontSize: 32,
     color: '#6B7280',
-    fontWeight: '600',
+    fontFamily: 'Inter-Medium',
     marginTop: 55,
-  },
-  pickerSelectionBand: {
-    position: 'absolute',
-    top: '50%',
-    left: 0,
-    right: 0,
-    height: 54,
-    marginTop: -27,
-    backgroundColor: 'rgba(60, 60, 62, 0.9)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#3C3C3E',
-  },
-  pickerGradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: 'rgba(44, 44, 46, 0.95)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#2C2C2E',
-  },
-  pickerGradientBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: 'rgba(44, 44, 46, 0.95)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: '#2C2C2E',
   },
   footer: {
     marginTop: 'auto',
   },
   setButton: {
-    backgroundColor: '#6366F1',
-    borderRadius: 20,
+    borderRadius: 12,
     paddingVertical: 16,
     width: '100%',
     alignItems: 'center',
-    shadowColor: '#6366F1',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
   },
   setButtonDisabled: {
     opacity: 0.5,
@@ -321,7 +257,7 @@ const styles = StyleSheet.create({
   setButtonText: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '600',
+    fontFamily: 'Inter-Medium',
     letterSpacing: 0.2,
   },
 }); 
