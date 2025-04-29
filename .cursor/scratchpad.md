@@ -86,6 +86,125 @@ hi this is the scratch pad
         - **13.5:** Note: Feature replaced by Hard Mode tooltip in subsequent steps.
     - **Success Criteria:** The 2XP indicator is displayed based on the focus mode.
 
+14. **Task 14: Timer State Management**
+    - **Goal:** Add state variables required for managing the timer's lifecycle in `app/(tabs)/index.tsx`.
+    - **Sub-Tasks:**
+        - 14.1: Import `useState` and `useEffect` from React.
+        - 14.2: Add state `[isActive, setIsActive]` initialized to `false`.
+        - 14.3: Add state `[isPaused, setIsPaused]` initialized to `false`.
+        - 14.4: Add state `[remainingTime, setRemainingTime]` (in seconds) initialized based on the default or selected duration (e.g., `selectedDuration * 60` or a default value like `25 * 60`).
+    - **Success Criteria:** State variables `isActive`, `isPaused`, and `remainingTime` are defined and initialized correctly in the `HomeScreen` component.
+
+15. **Task 15: Timer Logic (Interval)**
+    - **Goal:** Implement the core countdown mechanism using `setInterval`.
+    - **References:** `useEffect`, `setInterval`, `clearInterval`.
+    - **Sub-Tasks:**
+        - 15.1: Create a `useEffect` hook that runs when `isActive` or `isPaused` changes.
+        - 15.2: Inside the effect, if `isActive` is true and `isPaused` is false, set up an interval (`setInterval`) that decrements `remainingTime` by 1 every second (1000ms).
+        - 15.3: Store the interval ID returned by `setInterval`.
+        - 15.4: Implement the cleanup function for the `useEffect` hook to clear the interval (`clearInterval`) using the stored ID. This prevents memory leaks when the component unmounts or the dependencies change.
+        - 15.5: Ensure the interval stops if `remainingTime` reaches 0 (handled in Task 18).
+    - **Success Criteria:** A `useEffect` hook correctly manages a `setInterval` that decrements `remainingTime` only when the timer should be actively running. The interval is properly cleaned up.
+
+16. **Task 16: Start/Pause/Resume Button Logic**
+    - **Goal:** Modify the "Start Focus" button to handle starting, pausing, and resuming the timer, respecting the focus mode.
+    - **References:** `TouchableOpacity`, `useState` setters (`setIsActive`, `setIsPaused`), `focusMode` state.
+    - **Sub-Tasks:**
+        - 16.1: Create a handler function `handleStartPauseResume`.
+        - 16.2: **Start:** If `!isActive`, set `isActive` to `true`, `isPaused` to `false`, and initialize `remainingTime` based on `selectedDuration * 60`. If `selectedDuration` is 0, perhaps default to 25 minutes or show an alert.
+        - 16.3: **Pause:** If `isActive && !isPaused && focusMode === 'easy'`, set `isPaused` to `true`.
+        - 16.4: **Resume:** If `isActive && isPaused && focusMode === 'easy'`, set `isPaused` to `false`.
+        - 16.5 (Revised): Attach `handleStartPauseResume` to the `onPress` of the main action button. Conditionally render the button itself based on `focusMode === 'easy'` when timer is active.
+        - 16.6: Update the button's icon dynamically based on state: `play` (initial/reset/paused), `pause` (running & easy mode).
+    - **Success Criteria:** The main button correctly starts, pauses (only in easy mode), and resumes (only in easy mode) the timer. The button is hidden in hard mode when the timer is active. The icon updates correctly.
+
+17. **Task 17: Reset Button Logic**
+    - **Goal:** Add a way to cancel or reset the timer while it's active or paused (visible in both modes).
+    - **Sub-Tasks:**
+        - 17.1: Add a new `TouchableOpacity` button (e.g., "Cancel" or an icon).
+        - 17.2 (Revised): Conditionally render this button only when `isActive` is `true` (regardless of `focusMode`).
+        - 17.3: Create a handler function `handleReset`.
+        - 17.4: Inside `handleReset`, set `isActive` to `false`, `isPaused` to `false`, and reset `remainingTime` to the initial `selectedDuration * 60` (or default).
+        - 17.5: Attach `handleReset` to the `onPress` of the reset button.
+    - **Success Criteria:** A reset button appears when the timer is running or paused (in easy or hard mode). Pressing it stops the timer and resets its state variables.
+
+18. **Task 18: Timer Completion Logic**
+    - **Goal:** Stop the timer automatically when `remainingTime` reaches zero and handle completion.
+    - **Sub-Tasks:**
+        - 18.1: Modify the `setInterval` callback (from Task 15): Before decrementing, check if `remainingTime <= 1`.
+        - 18.2: If `remainingTime` is about to reach 0, set `isActive` to `false`, clear the interval explicitly (optional, as the effect cleanup should handle it), reset `remainingTime` (perhaps to initial duration for the next run), and potentially trigger haptic feedback or sound.
+        - 18.3: (Future) Trigger navigation to the Session Summary screen. For now, maybe just log a message or show an alert.
+    - **Success Criteria:** The timer stops (`isActive` becomes false) when `remainingTime` reaches 0.
+
+19. **Task 19: Update Timer Display (MM:SS)**
+    - **Goal:** Format the `remainingTime` (in seconds) into a `MM:SS` string for display.
+    - **Sub-Tasks:**
+        - 19.1: Modify the existing `formatDuration` function or create a new `formatTime(seconds)` helper function.
+        - 19.2: The function should calculate minutes (`Math.floor(seconds / 60)`) and remaining seconds (`seconds % 60`).
+        - 19.3: Format both minutes and seconds to have leading zeros if less than 10 (e.g., `05:09`).
+        - 19.4: Update the `ThemedText` component displaying the timer to use `formatTime(remainingTime)`.
+    - **Success Criteria:** The central timer display shows the `remainingTime` state formatted correctly as MM:SS, updating every second when active.
+
+20. **Task 20: Basic App Background Handling**
+    - **Goal:** Implement basic logic to pause the timer if the app goes into the background.
+    - **References:** `AppState` from `react-native`, `useEffect`.
+    - **Sub-Tasks:**
+        - 20.1: Import `AppState` from `react-native`.
+        - 20.2: Add a `useEffect` hook to subscribe to `AppState` changes ('change' event).
+        - 20.3: In the event handler, check the `nextAppState`. If it's 'background' or 'inactive', and the timer is active (`isActive && !isPaused`), store the current timestamp and set `isPaused` to true.
+        - 20.4: If the `nextAppState` is 'active' and the timer was paused due to backgrounding, calculate the time difference since backgrounding (optional, can simply resume). Set `isPaused` back to `false` if it was paused *only* due to backgrounding.
+        - 20.5: Ensure the subscription is removed in the effect's cleanup function.
+    - **Success Criteria:** The timer pauses automatically if the app enters the background while the timer is running and resumes (or stays paused if manually paused before) when the app returns to the foreground. *(Initial implementation might just pause without sophisticated time tracking).*
+
+21. **Task 21: Implement Focus Mode UI (Maintain Layout) (Final Revision - Placeholders)**
+    - **Goal:** Hide non-essential UI elements visually and interactively when the timer is active (`isActive` is true), while strictly maintaining layout stability.
+    - **Sub-Tasks:**
+        - 21.1: Define a style `styles.hiddenElement { opacity: 0, pointerEvents: 'none' }`.
+        - 21.2: Revert previous conditional rendering. Apply `isActive && styles.hiddenElement` to the `style` prop array of `streakContainer`, `xpSectionContainer`, `durationContainer`, `modeContainer`, `tooltipContainer`.
+        - 21.3: Verify spacer View in `topBar` is present.
+        - 21.4: Verify Settings cog, timer circle/button, timer text, and cancel button remain visible/correctly handled and **do not shift position at all**.
+    - **Success Criteria:** When `isActive` is true, the specified containers become invisible and non-interactive but still occupy the same layout space, preventing other elements from shifting. When `isActive` is false, all elements are visible and interactive.
+
+22. **Task 22: Adjust Active Timer Layout (Reverted)**
+    - **Goal:** Ensure the Timer Circle, Timer Text, and Cancel button are positioned correctly within the `centerContent` area when the timer is active.
+    - **Sub-Tasks:**
+        - 22.1: Revert conditional style (`centerContentActive`). (Done)
+        - 22.2: Re-evaluate layout after revised Task 21 (Fourth Rev) is implemented.
+    - **Success Criteria:** When the timer is active, the Timer Circle, Timer Text, and Cancel button are vertically spaced/aligned pleasingly, ideally without shifting from their inactive positions.
+
+23. **Task 23: Implement Mode-Specific Background Handling**
+    - **Goal:** Ensure the timer pauses (Easy Mode) or resets (Hard Mode) correctly when the app enters the background or becomes inactive, matching the tooltip warnings.
+    - **References:** Task 20 (Basic Background Handling), `AppState`, `focusMode`, `isActive`, `handleReset`.
+    - **Sub-Tasks:**
+        - 23.1: **Locate AppState Listener:** Find the `useEffect` hook subscribing to `AppState` changes.
+        - 23.2: **Modify Handler Logic:** Inside the `AppState` change handler:
+            - Check if `isActive` is true when the app state changes to 'background' or 'inactive'.
+            - If `isActive` is true:
+                - Check `focusMode`.
+                - **If `focusMode === 'easy'`:** Implement the current logic (set `isPaused` to true, set `appStatePausedRef` to true).
+                - **If `focusMode === 'hard'`:** Call the `handleReset()` function directly. Optionally log that the session was cancelled due to backgrounding.
+            - Check the logic for returning to 'active': Ensure it only resumes (`setIsPaused(false)`) if `appStatePausedRef` was true (meaning easy mode paused it). Reset `appStatePausedRef` after handling.
+        - 23.3: **Verify `handleReset`:** Double-check that `handleReset` fully cleans up the timer state (stops interval, resets `isActive`, `isPaused`, `remainingTime`). (Current implementation seems okay).
+    - **Success Criteria:**
+        - In Easy Mode, starting the timer, backgrounding the app, and returning resumes the timer from where it left off.
+        - In Easy Mode, manually pausing, backgrounding, and returning keeps the timer paused.
+        - In Hard Mode, starting the timer and backgrounding the app cancels the session (timer stops, remaining time resets, UI reverts to inactive state).
+
+24. **Task 24: Implement Screen Keep-Awake**
+    - **Goal:** Prevent the device screen from automatically locking/sleeping while the focus timer (`isActive`) is running.
+    - **References:** `expo-keep-awake` documentation, `useEffect`, `isActive` state.
+    - **Sub-Tasks:**
+        - **24.1: Install Dependency:** Add the `expo-keep-awake` package to the project.
+        - **24.2: Import:** Import `activateKeepAwakeAsync` and `deactivateKeepAwake` from `expo-keep-awake` in `app/(tabs)/index.tsx`.
+        - **24.3: Implement Effect:** Create a `useEffect` hook that depends on the `isActive` state.
+        - **24.4: Activation Logic:** Inside the effect, if `isActive` is `true`, call `activateKeepAwakeAsync()`. Handle potential errors.
+        - **24.5: Deactivation Logic:** Inside the effect, if `isActive` is `false`, call `deactivateKeepAwake()`.
+        - **24.6: Cleanup Logic:** Ensure the `useEffect`'s cleanup function *also* calls `deactivateKeepAwake()`.
+    - **Success Criteria:**
+        - Start the focus timer. Screen remains on past the normal auto-lock time.
+        - Stop/reset the focus timer. Screen locks automatically after the normal auto-lock time.
+        - Keep-awake is deactivated if the component unmounts while the timer is active.
+
 ## ✅ Project Status Board
 
 *(Updating based on current state)*
@@ -128,3 +247,71 @@ hi this is the scratch pad
   - [x] 13.3: Conditionally render "2XP".
   - [x] 13.4: Add style hardModeIndicator.
   - [x] Note: Feature replaced by Hard Mode tooltip in subsequent steps.
+- [x] Task 14: Timer State Management
+  - [x] 14.1: Import useState and useEffect (*already imported*)
+  - [x] 14.2: Add state [isActive, setIsActive]
+  - [x] 14.3: Add state [isPaused, setIsPaused]
+  - [x] 14.4: Add state [remainingTime, setRemainingTime]
+- [x] Task 15: Timer Logic (Interval)
+  - [x] 15.1: Create useEffect hook
+  - [x] 15.2: Implement setInterval logic
+  - [x] 15.3: Store interval ID
+  - [x] 15.4: Implement interval cleanup
+  - [x] 15.5: Ensure interval stops at 0
+- [x] Task 16: Start/Pause/Resume Button Logic (Revised for Mode)
+  - [x] 16.1: Create handleStartPauseResume
+  - [x] 16.2: Implement Start logic
+  - [x] 16.3: Implement Pause logic (Easy Mode only)
+  - [x] 16.4: Implement Resume logic (Easy Mode only)
+  - [x] 16.5 (Revised): Conditionally render button based on isActive & focusMode
+  - [x] 16.6: Update button icon dynamically
+- [x] Task 17: Reset Button Logic (Revised for Mode)
+  - [x] 17.1: Add Reset button UI
+  - [x] 17.2 (Revised): Conditionally render based on isActive only (*Verified, no code change needed*)
+  - [x] 17.3: Create handleReset
+  - [x] 17.4: Implement Reset logic
+  - [x] 17.5: Attach handler to button
+- [x] Task 18: Timer Completion Logic
+  - [x] 18.1: Check for remainingTime <= 1 in interval
+- [x] Task 19: Update Timer Display (MM:SS)
+  - [x] 19.1: Create/Modify formatTime(seconds) helper
+  - [x] 19.2: Implement MM:SS calculation
+  - [x] 19.3: Add leading zero formatting
+  - [x] 19.4: Update ThemedText to use formatTime
+- [x] Task 20: Basic App Background Handling
+  - [x] 20.1: Import AppState
+  - [x] 20.2: Add useEffect for AppState subscription
+  - [x] 20.3: Handle 'background'/'inactive' state (pause timer)
+  - [x] 20.4: Handle 'active' state (resume/check state)
+  - [x] 20.5: Implement subscription cleanup
+- [x] Task 21: Implement Focus Mode UI (Maintain Layout) (Final Revision - Placeholders)
+  - [x] 21.1: Define hiddenElement style
+  - [x] 21.2: Apply conditional style to containers
+  - [x] 21.3: Verify topBar spacer
+  - [x] 21.4: Verify layout stability
+- [x] Task 22: Adjust Active Timer Layout (Reverted)
+  - [x] 22.1: Revert conditional style
+- [x] Task 23: Implement Mode-Specific Background Handling
+  - [x] 23.1: Locate AppState Listener
+  - [x] 23.2: Modify Handler Logic (Easy/Hard Mode differentiation)
+  - [x] 23.3: Verify `handleReset`
+- [x] Task 24: Implement Screen Keep-Awake
+  - [x] 24.1: Install Dependency
+  - [x] 24.2: Import functions
+  - [x] 24.3: Implement Effect
+  - [x] 24.4: Activation Logic
+  - [x] 24.5: Deactivation Logic
+  - [x] 24.6: Cleanup Logic
+
+## 🧑‍💻 Executor's Feedback or Assistance Requests
+
+- Task 15: Added timer interval logic. Noticed `remainingTime` state does not automatically update if `selectedDuration` changes while the timer is *inactive*. Need a separate effect or logic modification to handle this synchronization for a better UX. Will add this refinement now. *(Self-resolved with subsequent effect)*
+- Need to implement the actual background handling logic described in the tooltips (Task 23). *(Done)*
+- Need to implement screen keep-awake functionality (Task 24). *(Done)*
+
+## 💡 Lessons
+
+- Remember to synchronize state derived from other state (like `remainingTime` from `selectedDuration`) when the source state changes, especially if the derived state isn't actively being updated by another process (like the timer interval).
+- Use placeholder elements with `opacity: 0` and `pointerEvents: 'none'` (matching the size/style of the real element) to prevent layout shifts during conditional rendering.
+- App background/foreground behavior might need different handling depending on the application's state (e.g., easy vs. hard mode).
+- Use `expo-keep-awake` (`activateKeepAwakeAsync`, `deactivateKeepAwake`) within a `useEffect` hook tied to relevant state (like a timer being active) to prevent the screen from auto-locking during critical periods.
