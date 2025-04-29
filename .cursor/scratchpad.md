@@ -24,23 +24,91 @@ hi this is the scratch pad
 
 5.  **Task 5: Basic Styling Pass**
 
+6.  **Task 6: State Management Setup**
+    *   **Goal:** Add state variables for picker visibility and selected duration in `app/(tabs)/index.tsx`.
+    *   **Sub-Tasks:**
+        *   6.1: Import `useState` from React.
+        *   6.2: Add state `[selectedDuration, setSelectedDuration]` initialized to 0 (default).
+        *   6.3: Add state `[isPickerVisible, setIsPickerVisible]` initialized to `false`.
+    *   **Success Criteria:** State variables `selectedDuration` and `isPickerVisible` are defined and initialized correctly in the `HomeScreen` component.
+
+7.  **Task 7: Update Timer Display (Dynamic Formatting)**
+    - **Goal:** Implement dynamic formatting for the timer display.
+    - **Sub-Tasks:**
+        - **7.1:** Create a helper function `formatDuration(totalMinutes)` to convert minutes to a formatted string.
+        - **7.2:** Update the Text component rendering the timer to use this helper function.
+    - **Success Criteria:** The timer display dynamically formats the time based on the total minutes.
+
+8.  **Task 8: Implement Preset Button Logic (State Update & Visuals)**
+    - **Goal:** Implement the logic for updating the state and visuals when a preset button is pressed.
+
+9.  **Task 9: Integrate Modal and Picker**
+    - **Goal:** Implement the logic for updating the state and visuals when a preset button is pressed.
+    - **Sub-Tasks:**
+        - **9.1:** Import Modal and Pressable
+        - **9.2:** Import CustomDurationPicker
+        - **9.3:** Add Modal component
+        - **9.4:** Add Pressable backdrop
+        - **9.5:** Add View modalContentContainer
+        - **9.6:** Render CustomDurationPicker with props
+        - **9.7:** Define handleDurationSelect function
+        - **9.8:** Define modalBackdrop and modalContentContainer styles
+    - **Success Criteria:** The modal and picker are implemented correctly and can be used to select a duration.
+
+10. **Task 10: Implement "+" Button Logic**
+    - **Goal:** Implement the logic for updating the state and visuals when a preset button is pressed.
+    - **Sub-Tasks:**
+        - **10.1:** Add an onPress handler to the "+" button's TouchableOpacity.
+        - **10.2:** Ensure the "+" button does not get the selected style visually.
+
+11. **Task 11: State Management for Focus Mode**
+    - **Goal:** Add state variable for focus mode in `app/(tabs)/index.tsx`.
+    - **Sub-Tasks:**
+        - **11.1:** Add state `[focusMode, setFocusMode]` initialized to 'easy'.
+    - **Success Criteria:** State variable `focusMode` is defined and initialized correctly in the `HomeScreen` component.
+
+12. **Task 12: Implement Mode Button Logic & Visuals**
+    - **Goal:** Implement the logic for updating the state and visuals when a mode button is pressed.
+    - **Sub-Tasks:**
+        - **12.1:** Add onPress handlers
+        - **12.2:** Conditional button style
+        - **12.3:** Conditional text style (incl. Hard mode red)
+        - **12.4:** Conditional icon color (incl. Hard mode red)
+    - **Success Criteria:** The mode buttons are implemented correctly and can be used to select a mode.
+
 ## ✅ Project Status Board
+
+*(Updating based on current state)*
 
 - [x] Task 1: Set up Main Screen Structure in `index.tsx`
 - [x] Task 2: Implement Top Bar Components
-  - [x] 2.1: Verify `@expo/vector-icons` installed
-  // ... other completed subtasks ...
 - [x] Task 3: Implement Central Focus Timer Display
-  - [x] 3.1: Set up structure in `centerContent`
-  - [x] 3.2: Implement Circular Placeholder
-  - [x] 3.3: Implement Timer Text ("25:00")
-  - [x] 3.4: Implement Mode Text ("Easy Mode")
-  - [x] 3.5: Implement Start Button ("▶ Start Focus")
-  - [x] 3.6: Layout & Final Styling
-- [x] Task 4: Implement Focus Session Controls
-  - [x] 4.1: Set up structure in `bottomControls`
-  - [x] 4.2: Implement Duration Buttons (25m, 50m, 90m, +)
-  - [x] 4.3: Implement Mode Buttons (Easy, Hard)
-  - [x] 4.4: Layout & Final Styling
-- [ ] Task 5: Basic Styling Pass
-// ... remaining subtasks ...
+- [x] Task 4: Implement Focus Session Controls (Presets)
+- [x] Task 5: Basic Styling Pass *(implicitly done through iterations)*
+- [x] Task 6: State Management Setup (Duration & Picker Visibility)
+  - [x] 6.1: Import useState from React.
+  - [x] 6.2: Add state [selectedDuration, setSelectedDuration] initialized to 0 (default).
+  - [x] 6.3: Add state [isPickerVisible, setIsPickerVisible] initialized to false.
+- [x] Task 7: Update Timer Display (Dynamic Formatting)
+  - [x] 7.1: Create a helper function formatDuration(totalMinutes)
+  - [x] 7.2: Update the Text component rendering the timer
+- [x] Task 8: Implement Preset Button Logic (State Update & Visuals)
+- [x] Task 9: Integrate Modal and Picker
+  - [x] 9.1: Import Modal and Pressable
+  - [x] 9.2: Import CustomDurationPicker
+  - [x] 9.3: Add Modal component
+  - [x] 9.4: Add Pressable backdrop
+  - [x] 9.5: Add View modalContentContainer
+  - [x] 9.6: Render CustomDurationPicker with props
+  - [x] 9.7: Define handleDurationSelect function
+  - [x] 9.8: Define modalBackdrop and modalContentContainer styles
+- [x] Task 10: Implement "+" Button Logic
+  - [x] 10.1: Add an onPress handler to the "+" button's TouchableOpacity.
+  - [x] 10.2: Ensure the "+" button does not get the selected style visually.
+- [x] Task 11: State Management for Focus Mode
+  - [x] 11.1: Add state [focusMode, setFocusMode] initialized to 'easy'.
+- [x] Task 12: Implement Mode Button Logic & Visuals
+  - [x] 12.1: Add onPress handlers
+  - [x] 12.2: Conditional button style
+  - [x] 12.3: Conditional text style (incl. Hard mode red)
+  - [x] 12.4: Conditional icon color (incl. Hard mode red)
