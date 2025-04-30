@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { supabase } from '@/services/supabase';
 import { Session } from '@supabase/supabase-js';
+import { ProfileProvider } from '@/contexts/ProfileContext';
 
 // Prevent the splash screen from auto-hiding.
 SplashScreen.preventAutoHideAsync();
@@ -209,20 +210,22 @@ export default function RootLayout() {
   }
 
   console.log('Rendering main Stack navigator');
-  // The actual navigator structure. Conditional logic is handled by useProtectedRoute hook.
+  // Wrap the existing content with ProfileProvider
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <OnboardingProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="(auth)" /> 
-            <Stack.Screen name="onboarding" />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </OnboardingProvider>
+      <ProfileProvider> 
+        <OnboardingProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="(auth)" /> 
+              <Stack.Screen name="onboarding" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </OnboardingProvider>
+      </ProfileProvider>
     </GestureHandlerRootView>
   );
 }

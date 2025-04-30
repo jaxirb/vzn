@@ -14,17 +14,17 @@ type Level = {
 type Props = {
   currentLevel: number;
   currentXP: number;
+  xpForNextLevel: number;
   onClose: () => void;
 };
 
 const MAX_DISPLAY_LEVEL = 20; // Define the display cap
 
-export default function LevelingSystem({ currentLevel, currentXP, onClose }: Props) {
+export default function LevelingSystem({ currentLevel, currentXP, xpForNextLevel, onClose }: Props) {
   // Remove expandedLevel state
   // const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
   // Add type annotation for find callbacks
   const currentLevelData = LEVELS.find((l: Level) => l.level === currentLevel) || LEVELS[0];
-  const nextLevelData = LEVELS.find((l: Level) => l.level === currentLevel + 1) || LEVELS[0];
 
   return (
     <SafeAreaView style={styles.safeAreaContainer}>
@@ -43,7 +43,7 @@ export default function LevelingSystem({ currentLevel, currentXP, onClose }: Pro
             <XPProgressBar
               currentLevel={currentLevel}
               currentXP={currentXP}
-              nextLevelXP={nextLevelData.xpRequired}
+              nextLevelXP={xpForNextLevel}
               currentLevelXP={currentLevelData.xpRequired}
               showDetails={true}
               compact={false}

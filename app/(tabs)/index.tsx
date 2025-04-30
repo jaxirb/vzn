@@ -8,6 +8,9 @@ import { BlurView } from 'expo-blur'; // Import BlurView
 import { AppState } from 'react-native'; // Task 20.1: Import AppState
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'; // Task 24.2: Import keep-awake functions
 import Svg, { Circle } from 'react-native-svg'; // Task 25.2: Import SVG components
+import { ProfileContext, useProfile } from '@/contexts/ProfileContext'; // Import useProfile hook
+import { LEVELS } from '@/lib/levels'; // Import level definitions (Corrected name)
+import { supabase } from '@/services/supabase'; // Import supabase client
 // import { LinearGradient } from 'expo-linear-gradient'; // Reverted: Removed import
 
 import { ThemedText } from '@/components/ThemedText';
@@ -15,7 +18,6 @@ import { ThemedView } from '@/components/ThemedView'; // Reverted: Uncommented i
 import CustomDurationPicker from '@/components/focus/CustomDurationPicker'; // Import Picker
 import StreakModal from '@/components/StreakModal'; // Task 26.2: Import StreakModal
 import LevelingSystem from '@/components/LevelingSystem'; // Task 27.2: Import LevelingSystem
-import { LEVELS } from '../../lib/levels'; // Corrected import path for LEVELS
 
 // Define the structure of a level object based on usage from LevelingSystem
 type Level = {
@@ -82,11 +84,16 @@ export default function HomeScreen() {
   const [focusMode, setFocusMode] = useState<FocusMode>('easy');
   const [xpSectionHeight, setXpSectionHeight] = useState<number>(0);
 
+  // --- Consume Profile Context using the hook --- //
+  const { profile, loading, fetchProfile } = useProfile();
+
   // Task 14: Timer State
   const [isActive, setIsActive] = useState<boolean>(false); // Timer active?
   const [isPaused, setIsPaused] = useState<boolean>(false); // Timer paused?
   // Initialize remainingTime (in seconds) based on default selectedDuration
   const [remainingTime, setRemainingTime] = useState<number>(selectedDuration * 60);
+  // B6.3: State to store duration when timer starts
+  const [completedSessionDuration, setCompletedSessionDuration] = useState<number>(0);
 
   // Task 26.1: Streak Modal State
   const [isStreakModalVisible, setIsStreakModalVisible] = useState<boolean>(false);
@@ -110,11 +117,26 @@ export default function HomeScreen() {
   // Represents the progress of the WHITE circle (0=empty, 1=full)
   const progressAnimation = useRef(new Animated.Value(0)).current; 
 
-  const isUserMaxLevel = userLevel >= MAX_DISPLAY_LEVEL;
-  // Find next level data only if not max level
-  const nextLevelData = !isUserMaxLevel ? LEVELS.find((l: Level) => l.level === userLevel + 1) : null;
-  // Calculate XP required for the next level, default to current XP if maxed or data missing
-  const xpRequiredForNextDisplay = nextLevelData ? nextLevelData.xpRequired : userXP;
+  // --- Calculate derived values (using reverted field names) --- //
+  const currentLevel = profile?.level ?? 1;
+  const currentXP = profile?.xp ?? 0;
+
+  // --- Calculate progress for main screen bar --- //
+  const currentLevelData = LEVELS.find(l => l.level === currentLevel);
+  const nextLevelInfo = LEVELS.find(l => l.level === currentLevel + 1);
+  const currentLevelXP = currentLevelData?.xpRequired ?? 0;
+  const nextLevelXP = nextLevelInfo?.xpRequired ?? currentXP; // If no next level, use current XP as max
+  const isMaxLevel = !nextLevelInfo;
+
+  const calculateProgressPercentage = () => {
+    if (isMaxLevel) return 100;
+    const xpIntoCurrentLevel = currentXP - currentLevelXP;
+    const xpNeededForLevel = nextLevelXP - currentLevelXP;
+    if (xpNeededForLevel <= 0) return xpIntoCurrentLevel >= 0 ? 100 : 0;
+    const progress = (xpIntoCurrentLevel / xpNeededForLevel) * 100;
+    return Math.min(Math.max(progress, 0), 100);
+  };
+  const progressPercentage = calculateProgressPercentage();
 
   // --- Callback Functions --- //
   const handleReset = useCallback(() => {
@@ -126,6 +148,7 @@ export default function HomeScreen() {
     setIsActive(false);
     setIsPaused(false);
     setRemainingTime(selectedDuration * 60);
+    setCompletedSessionDuration(0); // B6.5: Reset stored duration
     console.log("Timer reset.");
   }, [selectedDuration]);
 
@@ -143,28 +166,92 @@ export default function HomeScreen() {
   useEffect(() => {
     if (isActive && !isPaused) {
       intervalRef.current = setInterval(() => {
+        // Use a variable to track if completion logic is running
+        let completionRunning = false; 
+
         setRemainingTime((prevTime) => {
+          // Prevent completion logic from running multiple times if interval fires again quickly
+          if (completionRunning) return prevTime; 
+
           if (prevTime <= 1) {
+            completionRunning = true; // Mark as running
             clearInterval(intervalRef.current!); 
-            setIsActive(false);
-            console.log("Timer finished!");
-            return selectedDuration * 60;
+            intervalRef.current = null; // Clear ref immediately
+            
+            const durationToAward = completedSessionDuration;
+            console.log(`Timer finished! Duration to award: ${durationToAward} minutes.`);
+
+            // B6.6: Call Edge Function if duration is valid
+            if (durationToAward > 0) {
+              const previousLevel = profile?.level;
+              // Get the current focus mode
+              const currentFocusMode = focusMode; 
+              console.log(`[award-xp] Invoking function with duration: ${durationToAward}, mode: ${currentFocusMode}`);
+              supabase.functions.invoke('award-xp', {
+                body: { 
+                  sessionDurationMinutes: durationToAward,
+                  focusMode: currentFocusMode // B6.4: Pass focusMode
+                }
+              })
+              .then((result: any) => {
+                // B6.7: Handle success
+                console.log('Session completed, XP awarded:', result?.data);
+                // Fetch updated profile data
+                return fetchProfile(); // Return promise for chaining
+              })
+              .then(() => {
+                  // Check for level up AFTER profile is fetched
+                  const newLevel = profile?.level; 
+                  if (previousLevel && newLevel && newLevel > previousLevel) {
+                      Alert.alert('Level Up!', `Congratulations! You reached level ${newLevel}!`);
+                  }
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              })
+              .catch((error: any) => {
+                // B6.7: Handle failure
+                console.error('Error awarding XP:', error);
+                Alert.alert('Error', 'Could not save session progress. Please try again later.');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              })
+              .finally(() => {
+                // B6.7: Reset UI state regardless of success/failure
+                console.log('Resetting timer UI after function call.');
+                setIsActive(false);
+                setRemainingTime(selectedDuration * 60); // Reset to initial duration for next run
+                setCompletedSessionDuration(0); // Clear the completed duration
+                completionRunning = false; // Allow completion logic again
+              });
+            } else {
+              // If duration was 0, just reset UI immediately
+              console.log('Timer finished with 0 duration, resetting UI.');
+              setIsActive(false);
+              setRemainingTime(selectedDuration * 60);
+              setCompletedSessionDuration(0);
+              completionRunning = false; 
+            }
+
+            // Return the reset duration, though UI update is handled in finally()
+            return selectedDuration * 60; 
           }
+          // Normal decrement
           return prevTime - 1; 
         });
       }, 1000);
     } else {
+      // Clear interval if timer becomes inactive or paused
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     }
+    // Cleanup function for the effect itself
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isActive, isPaused]); 
+    // Dependencies: Include profile for level up check, fetchProfile, completedSessionDuration, focusMode
+  }, [isActive, isPaused, selectedDuration, supabase, fetchProfile, completedSessionDuration, profile, focusMode]); 
 
   // --- Animation Effect for Progress Circle --- //
   useEffect(() => {
@@ -295,16 +382,19 @@ export default function HomeScreen() {
 
     if (!isActive) {
       // Start (Applies to both modes)
-      if (remainingTime <= 0) {
-        console.warn("Cannot start timer with 0 duration.");
+      if (selectedDuration <= 0) { // Check selectedDuration, not remainingTime
+        Alert.alert("Select Duration", "Please select a focus duration first.");
         return;
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on start
+      setCompletedSessionDuration(selectedDuration); // B6.4: Store duration
+      // Ensure remainingTime is correctly set based on stored duration before starting
+      setRemainingTime(selectedDuration * 60);
       setIsActive(true);
       setIsPaused(false); 
-      console.log(`Timer started with ${remainingTime} seconds.`);
-    } else if (focusMode === 'easy') {
-      // Pause or Resume (Easy Mode Only)
+      console.log(`Timer started for ${selectedDuration} minutes.`);
+    } else if (!isPaused && focusMode === 'easy') {
+      // Pause (Easy Mode Only)
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on pause/resume
       setIsPaused(!isPaused);
       console.log(isPaused ? "Timer resumed." : "Timer paused.");
@@ -392,13 +482,19 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.topBar}>
-        {/* Task 21 (Fifth Rev): Conditional Render w/ Placeholder */}
+        {/* Left: Level Indicator - REMOVED */}
+        {/* <Pressable style={styles.levelContainer} onPress={() => setIsLevelModalVisible(true)}>
+          <Ionicons name="ribbon" size={20} color="#FFD700" />
+          <ThemedText style={styles.levelText}>{loading ? '...' : profile?.level ?? '-'}</ThemedText>
+        </Pressable> */}
+
+        {/* Right: Streak Indicator - Conditionally rendered */}
         {isActive ? (
           <View style={{ height: 24 }} /> // Placeholder height
         ) : (
           <Pressable onPress={() => setIsStreakModalVisible(true)} style={styles.streakContainer}>
             <Ionicons name="flash" size={20} color="#FFD700" />
-            <ThemedText style={styles.streakText}>3</ThemedText>
+            <ThemedText style={styles.streakText}>{loading ? '...' : profile?.streak ?? '-'}</ThemedText>
           </Pressable>
         )}
         {/* Spacer */}
@@ -419,25 +515,29 @@ export default function HomeScreen() {
             <View style={styles.xpContainer}>
               {/* XP Bar structure */}
               <View style={styles.xpLevelHeader}>
-                <ThemedText style={styles.xpCurrentLevelText}>LVL {userLevel}</ThemedText>
+                <ThemedText style={styles.xpCurrentLevelText}>LVL {loading ? '...' : profile?.level ?? '-'}</ThemedText>
                 <ThemedText style={[
                     styles.xpNextLevelText,
-                    isUserMaxLevel && styles.maxLevelText // Apply green style
+                    // Calculate isUserMaxLevel inline
+                    !(LEVELS.find(l => l.level === currentLevel + 1)) && styles.maxLevelText 
                   ]}>
-                    {isUserMaxLevel ? 'MAX' : `LVL ${userLevel + 1}`}
+                    {/* Calculate isUserMaxLevel inline */} 
+                    {!(LEVELS.find(l => l.level === currentLevel + 1)) ? 'MAX' : `LVL ${currentLevel + 1}`}
                 </ThemedText>
               </View>
               <View style={styles.xpProgressContainer}>
                 <View style={styles.xpProgressBar}>
                   <View
-                    style={[styles.xpProgress, { width: isUserMaxLevel ? '100%' : '30%' }]} // Placeholder width or 100%
+                    // Use calculated progress percentage for width
+                    style={[styles.xpProgress, { width: `${progressPercentage}%` }]} 
                   />
                 </View>
                 <View style={styles.xpInfoContainer}>
                   <ThemedText style={styles.xpRemaining}>
-                    {isUserMaxLevel
-                      ? `${userXP.toLocaleString()} / ${userXP.toLocaleString()} XP`
-                      : `${userXP.toLocaleString()} / ${xpRequiredForNextDisplay.toLocaleString()} XP`}
+                    {/* Calculate isUserMaxLevel and xpForNextLevel inline */} 
+                    {!(LEVELS.find(l => l.level === currentLevel + 1)) 
+                      ? `${currentXP.toLocaleString()} / ${currentXP.toLocaleString()} XP`
+                      : `${currentXP.toLocaleString()} / ${(LEVELS.find(l => l.level === currentLevel + 1)?.xpRequired ?? currentXP).toLocaleString()} XP`}
                   </ThemedText>
                   <Ionicons name="chevron-forward-outline" size={16} color="#8e8e93" />
                 </View>
@@ -663,9 +763,9 @@ export default function HomeScreen() {
         {/* Task 26.6: Render StreakModal Component Here */}
         <StreakModal 
           onClose={handleCloseStreakModal} // Pass the close handler
-          currentStreak={5} // Reverted placeholder
-          longestStreak={10} // Reverted placeholder
-          nextMilestone={7} // Reverted placeholder
+          currentStreak={profile?.streak ?? 0} // Use actual data
+          longestStreak={profile?.longest_streak ?? 0} // Use actual data
+          nextMilestone={7} // Placeholder - TODO: Calculate actual next milestone
         />
       </Modal>
 
@@ -679,8 +779,10 @@ export default function HomeScreen() {
         {/* Task 27.6: Render LevelingSystem Component Here */}
         <LevelingSystem 
           onClose={handleCloseLevelModal} // Pass the close handler
-          currentLevel={1} // Reverted placeholder
-          currentXP={50} // Reverted placeholder
+          currentLevel={currentLevel}
+          currentXP={currentXP}
+          // Calculate xpForNextLevel inline
+          xpForNextLevel={LEVELS.find(l => l.level === currentLevel + 1)?.xpRequired ?? currentXP}
         />
       </Modal>
     </ThemedView>
@@ -969,5 +1071,15 @@ const styles = StyleSheet.create({
   // Style for the MAX level indicator on the main screen
   maxLevelText: {
     color: '#34C759', // Green color
+  },
+  levelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  levelText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'ChakraPetch-SemiBold',
   },
 });

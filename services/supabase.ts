@@ -44,10 +44,15 @@ AppState.addEventListener('change', (state) => {
 // Define a type for the profile data
 export type Profile = {
   id: string; // UUID linked to auth.users
+  email: string | null; // User's email, nullable
   onboarding_completed: boolean;
-  xp: number;
-  level: number;
-  streak: number;
+  xp: number; // Total XP, non-nullable, default 0 (Reverted based on fetch log)
+  level: number; // Current level, non-nullable, default 1 (Reverted based on fetch log)
+  streak: number; // Current streak, non-nullable, default 0
+  longest_streak: number; // Longest streak, non-nullable, default 0
+  last_session_timestamp: string | null; // Timestamp of last qualifying session, nullable
+  created_at: string; // Timestamp of profile creation (non-nullable due to default)
+  updated_at: string | null; // Timestamp of last profile update, nullable
   // Add other profile fields here as needed
 };
 

@@ -44,7 +44,7 @@ export default function XPProgressBar({
             styles.nextLevelText, 
             isMaxLevel && styles.maxLevelText
           ]}>
-            {isMaxLevel ? 'MAX' : `Level ${currentLevel + 1}`}
+            {isMaxLevel ? 'MAX' : `LVL ${currentLevel + 1}`}
           </Text>
         </View>
       )}
