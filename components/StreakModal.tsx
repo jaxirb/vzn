@@ -32,10 +32,9 @@ export default function StreakModal({
         {/* Current Streak */}
         <View style={styles.streakSection}>
           <View style={styles.streakHeader}>
-            <MaterialCommunityIcons name="fire" size={32} color="#FF9500" />
             <Text style={styles.streakTitle}>Current Streak</Text>
           </View>
-          <Text style={styles.streakCount}>{currentStreak} Days</Text>
+          <Text style={styles.streakCount}>{currentStreak}</Text>
           <Text style={styles.streakSubtext}>Keep it going!</Text>
         </View>
 
@@ -43,13 +42,13 @@ export default function StreakModal({
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Longest Streak</Text>
-            <Text style={styles.statValue}>{longestStreak} Days</Text>
+            <Text style={styles.statValue}>{longestStreak}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Next Milestone</Text>
             <Text style={styles.statValue}>
-              {nextMilestone !== null ? `${nextMilestone} Days` : '-'}
+              {nextMilestone !== null ? `${nextMilestone}` : '-'}
             </Text>
           </View>
         </View>
@@ -67,8 +66,8 @@ export default function StreakModal({
               <Text style={styles.tipText}>Sessions must be at least 25 minutes</Text>
             </View>
             <View style={styles.tipItem}>
-              <MaterialCommunityIcons name="shield-check" size={20} color="#34D399" />
-              <Text style={styles.tipText}>Upgrade to PRO for streak protection</Text>
+              <MaterialCommunityIcons name="trending-up" size={20} color="#34D399" />
+              <Text style={styles.tipText}>Stay consistent to build momentum.</Text>
             </View>
           </View>
         </View>
@@ -80,14 +79,13 @@ export default function StreakModal({
 const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#111111',
     marginTop: 'auto',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   header: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    // Removed border
   },
   modalDragArea: {
     paddingVertical: 20,
@@ -112,8 +110,7 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
-    borderRadius: 16,
+    // Removed background and border radius
   },
   content: {
     padding: 24,
@@ -129,29 +126,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   streakTitle: {
-    fontSize: 20,
+    fontSize: 18,
     color: '#FFFFFF',
     fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   streakCount: {
-    fontSize: 52,
+    fontSize: 48,
     color: '#FFFFFF',
     fontWeight: 'bold',
+    fontFamily: 'ChakraPetch-SemiBold',
   },
   streakSubtext: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#9CA3AF',
     fontWeight: '500',
+    fontFamily: 'Inter-Medium',
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#141414',
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
   },
   statItem: {
     flex: 1,
@@ -167,19 +164,22 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontWeight: '500',
     marginBottom: 4,
+    fontFamily: 'Inter-Medium',
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 18,
     color: '#FFFFFF',
     fontWeight: '600',
+    fontFamily: 'ChakraPetch-SemiBold',
   },
   tipsSection: {
     gap: 12,
   },
   tipsTitle: {
-    fontSize: 17,
+    fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   tipsList: {
     gap: 10,
@@ -188,15 +188,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#141414',
     borderRadius: 10,
     padding: 10,
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
   },
   tipText: {
     fontSize: 13,
     color: '#9CA3AF',
     flex: 1,
+    fontFamily: 'Inter-Regular',
   },
 }); 

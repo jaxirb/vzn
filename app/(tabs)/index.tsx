@@ -13,6 +13,7 @@ import Svg, { Circle } from 'react-native-svg'; // Task 25.2: Import SVG compone
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView'; // Reverted: Uncommented import
 import CustomDurationPicker from '@/components/focus/CustomDurationPicker'; // Import Picker
+import StreakModal from '@/components/StreakModal'; // Task 26.2: Import StreakModal
 
 // --- Types --- //
 type FocusMode = 'easy' | 'hard';
@@ -75,6 +76,9 @@ export default function HomeScreen() {
   const [isPaused, setIsPaused] = useState<boolean>(false); // Timer paused?
   // Initialize remainingTime (in seconds) based on default selectedDuration
   const [remainingTime, setRemainingTime] = useState<number>(selectedDuration * 60);
+
+  // Task 26.1: Streak Modal State
+  const [isStreakModalVisible, setIsStreakModalVisible] = useState<boolean>(false);
 
   const [showTooltipArea, setShowTooltipArea] = useState<boolean>(false);
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -175,6 +179,11 @@ export default function HomeScreen() {
       ],
       { cancelable: true } // Allows dismissing by tapping outside on Android
     );
+  };
+
+  // Task 26.7: Close handler for Streak Modal
+  const handleCloseStreakModal = () => {
+    setIsStreakModalVisible(false);
   };
 
   // --- Task 24: Keep Screen Awake While Timer Active --- //
@@ -358,10 +367,10 @@ export default function HomeScreen() {
         {isActive ? (
           <View style={{ height: 24 }} /> // Placeholder height
         ) : (
-          <View style={styles.streakContainer}>
+          <Pressable onPress={() => setIsStreakModalVisible(true)} style={styles.streakContainer}>
             <Ionicons name="flash" size={20} color="#FFD700" />
             <ThemedText style={styles.streakText}>3</ThemedText>
-          </View>
+          </Pressable>
         )}
         {/* Spacer */}
         <View style={{ flex: 1 }} /> 
@@ -604,6 +613,21 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* Task 26.5: Streak Modal */}
+      <Modal
+        visible={isStreakModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseStreakModal} // Use the new handler
+      >
+        {/* Task 26.6: Render StreakModal Component Here */}
+        <StreakModal 
+          onClose={handleCloseStreakModal} // Pass the close handler
+          currentStreak={5} // Placeholder
+          longestStreak={10} // Placeholder
+          nextMilestone={7} // Placeholder
+        />
+      </Modal>
     </ThemedView>
   );
 }

@@ -222,6 +222,23 @@ hi this is the scratch pad
         - Text remains centered and visible.
         - Animation accurately reflects remaining time.
 
+26. **Task 26: Implement Streak Modal Interaction**
+    - **Goal:** Display the `StreakModal` when the user presses the streak indicator in the top bar.
+    - **References:** `app/(tabs)/index.tsx`, `components/StreakModal.tsx`, `Modal` (react-native), `useState`.
+    - **Sub-Tasks:**
+        - **26.1: Add Modal State:** In `app/(tabs)/index.tsx`, add a `useState` variable `[isStreakModalVisible, setIsStreakModalVisible]` initialized to `false`.
+        - **26.2: Import Components:** Import `Modal` from `react-native` and `StreakModal` from `../../components/StreakModal`.
+        - **26.3: Make Indicator Pressable:** Locate the `streakContainer` `View` in the `topBar`. Wrap it with a `Pressable` or `TouchableOpacity`.
+        - **26.4: Implement Show Handler:** Add an `onPress` handler to the `Pressable`/`TouchableOpacity` that calls `setIsStreakModalVisible(true)`.
+        - **26.5: Render Modal:** At the bottom of the main `View` in `HomeScreen`, add a `Modal` component. Set its `visible` prop to `isStreakModalVisible`, `animationType` to `'slide'`, and `transparent` to `true`.
+        - **26.6: Render StreakModal:** Inside the `Modal`, render the `StreakModal` component.
+        - **26.7: Implement Close Handler:** Create a function `handleCloseStreakModal` that calls `setIsStreakModalVisible(false)`. Pass this function as the `onClose` prop to `StreakModal`.
+        - **26.8: Pass Placeholder Data:** Pass placeholder values for `currentStreak`, `longestStreak`, and `nextMilestone` props to `StreakModal` (e.g., `currentStreak={5}`, `longestStreak={10}`, `nextMilestone={7}`). *(Actual data integration will be a later task)*.
+    - **Success Criteria:**
+        - Pressing the streak indicator (fire icon and number) opens a modal sliding up from the bottom.
+        - The modal displays the content from `StreakModal.tsx` with placeholder data.
+        - Pressing the close button ('X') inside the modal dismisses it.
+
 ## ✅ Project Status Board
 
 *(Updating based on current state)*
@@ -327,6 +344,15 @@ hi this is the scratch pad
   - [x] 25.5: Drive Animation with Effect
   - [x] 25.6: Implement SVG Structure
   - [x] 25.7: Place Text
+- [x] Task 26: Implement Streak Modal Interaction
+  - [x] 26.1: Add Modal State
+  - [x] 26.2: Import Components
+  - [x] 26.3: Make Indicator Pressable
+  - [x] 26.4: Implement Show Handler
+  - [x] 26.5: Render Modal
+  - [x] 26.6: Render StreakModal
+  - [x] 26.7: Implement Close Handler
+  - [x] 26.8: Pass Placeholder Data
 
 ## 🧑‍💻 Executor's Feedback or Assistance Requests
 
