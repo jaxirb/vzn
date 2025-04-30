@@ -14,6 +14,15 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView'; // Reverted: Uncommented import
 import CustomDurationPicker from '@/components/focus/CustomDurationPicker'; // Import Picker
 import StreakModal from '@/components/StreakModal'; // Task 26.2: Import StreakModal
+import LevelingSystem from '@/components/LevelingSystem'; // Task 27.2: Import LevelingSystem
+import { LEVELS } from '../../lib/levels'; // Corrected import path for LEVELS
+
+// Define the structure of a level object based on usage from LevelingSystem
+type Level = {
+  level: number;
+  xpRequired: number;
+  title?: string;
+};
 
 // --- Types --- //
 type FocusMode = 'easy' | 'hard';
@@ -64,6 +73,8 @@ const CIRCLE_CENTER = CIRCLE_SIZE / 2;
 const BACKGROUND_COLOR = '#333333'; // Match old border color
 const FOREGROUND_COLOR = '#FFFFFF'; // White progress
 
+const MAX_DISPLAY_LEVEL = 20; // Define max level for display
+
 export default function HomeScreen() {
   // --- State Variables --- //
   const [selectedDuration, setSelectedDuration] = useState<number>(25);
@@ -80,6 +91,13 @@ export default function HomeScreen() {
   // Task 26.1: Streak Modal State
   const [isStreakModalVisible, setIsStreakModalVisible] = useState<boolean>(false);
 
+  // Task 27.1: Leveling System Modal State
+  const [isLevelModalVisible, setIsLevelModalVisible] = useState<boolean>(false);
+
+  // Placeholder state for actual user progress (Task: Max Level Display)
+  const [userLevel, setUserLevel] = useState<number>(1); // Reverted placeholder
+  const [userXP, setUserXP] = useState<number>(50); // Reverted placeholder
+
   const [showTooltipArea, setShowTooltipArea] = useState<boolean>(false);
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const tooltipOpacity = useRef(new Animated.Value(0)).current;
@@ -91,6 +109,12 @@ export default function HomeScreen() {
 
   // Represents the progress of the WHITE circle (0=empty, 1=full)
   const progressAnimation = useRef(new Animated.Value(0)).current; 
+
+  const isUserMaxLevel = userLevel >= MAX_DISPLAY_LEVEL;
+  // Find next level data only if not max level
+  const nextLevelData = !isUserMaxLevel ? LEVELS.find((l: Level) => l.level === userLevel + 1) : null;
+  // Calculate XP required for the next level, default to current XP if maxed or data missing
+  const xpRequiredForNextDisplay = nextLevelData ? nextLevelData.xpRequired : userXP;
 
   // --- Callback Functions --- //
   const handleReset = useCallback(() => {
@@ -184,6 +208,11 @@ export default function HomeScreen() {
   // Task 26.7: Close handler for Streak Modal
   const handleCloseStreakModal = () => {
     setIsStreakModalVisible(false);
+  };
+
+  // Task 27.7: Close handler for Leveling System Modal
+  const handleCloseLevelModal = () => {
+    setIsLevelModalVisible(false);
   };
 
   // --- Task 24: Keep Screen Awake While Timer Active --- //
@@ -382,29 +411,40 @@ export default function HomeScreen() {
       {isActive ? (
         <View style={{ height: xpSectionHeight, marginBottom: 16 }} /> // Add marginBottom to match
       ) : (
-        <View 
-          style={styles.xpSectionContainer}
-          onLayout={handleXpSectionLayout}
-        >
-          <View style={styles.xpContainer}>
-            {/* XP Bar structure */}
-            <View style={styles.xpLevelHeader}>
-              <ThemedText style={styles.xpCurrentLevelText}>LVL 1</ThemedText>
-              <ThemedText style={styles.xpNextLevelText}>LVL 2</ThemedText>
-            </View>
-            <View style={styles.xpProgressContainer}>
-              <View style={styles.xpProgressBar}>
-                <View
-                  style={[styles.xpProgress, { width: '30%' }]}
-                />
+        <Pressable onPress={() => setIsLevelModalVisible(true)}>
+          <View 
+            style={styles.xpSectionContainer}
+            onLayout={handleXpSectionLayout}
+          >
+            <View style={styles.xpContainer}>
+              {/* XP Bar structure */}
+              <View style={styles.xpLevelHeader}>
+                <ThemedText style={styles.xpCurrentLevelText}>LVL {userLevel}</ThemedText>
+                <ThemedText style={[
+                    styles.xpNextLevelText,
+                    isUserMaxLevel && styles.maxLevelText // Apply green style
+                  ]}>
+                    {isUserMaxLevel ? 'MAX' : `LVL ${userLevel + 1}`}
+                </ThemedText>
               </View>
-              <View style={styles.xpInfoContainer}>
-                <ThemedText style={styles.xpRemaining}>50 / 150 XP</ThemedText>
-                <Ionicons name="chevron-forward-outline" size={16} color="#8e8e93" />
+              <View style={styles.xpProgressContainer}>
+                <View style={styles.xpProgressBar}>
+                  <View
+                    style={[styles.xpProgress, { width: isUserMaxLevel ? '100%' : '30%' }]} // Placeholder width or 100%
+                  />
+                </View>
+                <View style={styles.xpInfoContainer}>
+                  <ThemedText style={styles.xpRemaining}>
+                    {isUserMaxLevel
+                      ? `${userXP.toLocaleString()} / ${userXP.toLocaleString()} XP`
+                      : `${userXP.toLocaleString()} / ${xpRequiredForNextDisplay.toLocaleString()} XP`}
+                  </ThemedText>
+                  <Ionicons name="chevron-forward-outline" size={16} color="#8e8e93" />
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        </Pressable>
       )}
 
       {/* Center Timer Section */}
@@ -623,9 +663,24 @@ export default function HomeScreen() {
         {/* Task 26.6: Render StreakModal Component Here */}
         <StreakModal 
           onClose={handleCloseStreakModal} // Pass the close handler
-          currentStreak={5} // Placeholder
-          longestStreak={10} // Placeholder
-          nextMilestone={7} // Placeholder
+          currentStreak={5} // Reverted placeholder
+          longestStreak={10} // Reverted placeholder
+          nextMilestone={7} // Reverted placeholder
+        />
+      </Modal>
+
+      {/* Task 27.5: Leveling System Modal */}
+      <Modal
+        visible={isLevelModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseLevelModal} // Use the new handler
+      >
+        {/* Task 27.6: Render LevelingSystem Component Here */}
+        <LevelingSystem 
+          onClose={handleCloseLevelModal} // Pass the close handler
+          currentLevel={1} // Reverted placeholder
+          currentXP={50} // Reverted placeholder
         />
       </Modal>
     </ThemedView>
@@ -769,11 +824,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
     fontFamily: 'ChakraPetch-SemiBold',
+    fontWeight: '500',
   },
   xpNextLevelText: {
     fontSize: 14,
     color: '#8e8e93',
     fontFamily: 'ChakraPetch-SemiBold',
+    fontWeight: '500',
   },
   xpProgressContainer: {
     gap: 4,
@@ -908,5 +965,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // Ensure it doesn't block touch events if it covers the whole circle
     pointerEvents: 'none', 
+  },
+  // Style for the MAX level indicator on the main screen
+  maxLevelText: {
+    color: '#34C759', // Green color
   },
 });

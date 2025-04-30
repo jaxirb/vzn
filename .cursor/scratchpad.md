@@ -239,6 +239,53 @@ hi this is the scratch pad
         - The modal displays the content from `StreakModal.tsx` with placeholder data.
         - Pressing the close button ('X') inside the modal dismisses it.
 
+27. **Task 27: Implement Leveling System Modal Interaction**
+    - **Goal:** Display the `LevelingSystem` when the user presses the level indicator in the top bar.
+    - **References:** `app/(tabs)/index.tsx`, `components/LevelingSystem.tsx`, `Modal` (react-native), `useState`.
+    - **Sub-Tasks:**
+        - **27.1: Add Modal State:** In `app/(tabs)/index.tsx`, add a `useState` variable `[isLevelingSystemVisible, setIsLevelingSystemVisible]` initialized to `false`.
+        - **27.2: Import Components:** Import `Modal` from `react-native` and `LevelingSystem` from `../../components/LevelingSystem`.
+        - **27.3: Make Indicator Pressable:** Locate the `levelContainer` `View` in the `topBar`. Wrap it with a `Pressable` or `TouchableOpacity`.
+        - **27.4: Implement Show Handler:** Add an `onPress` handler to the `Pressable`/`TouchableOpacity` that calls `setIsLevelingSystemVisible(true)`.
+        - **27.5: Render Modal:** At the bottom of the main `View` in `HomeScreen`, add a `Modal` component. Set its `visible` prop to `isLevelingSystemVisible`, `animationType` to `'slide'`, and `transparent` to `true`.
+        - **27.6: Render LevelingSystem:** Inside the `Modal`, render the `LevelingSystem` component.
+        - **27.7: Implement Close Handler:** Create a function `handleCloseLevelingSystem` that calls `setIsLevelingSystemVisible(false)`. Pass this function as the `onClose` prop to `LevelingSystem`.
+        - **27.8: Pass Placeholder Data:** Pass placeholder values for `currentLevel`, `currentXP`, and `nextLevelXP` props to `LevelingSystem` (e.g., `currentLevel={5}`, `currentXP={120}`, `nextLevelXP={200}`). *(Actual data integration will be a later task)*.
+    - **Success Criteria:**
+        - Pressing the level indicator (sword icon and number) opens a modal sliding up from the bottom.
+        - The modal displays the content from `LevelingSystem.tsx` with placeholder data.
+        - Pressing the close button ('X') inside the modal dismisses it.
+
+28. **Task 28: Refine Leveling System Modal UI/UX**
+    - **Goal:** Improve the clarity and usability of the Leveling System modal based on feedback.
+    - **References:** `components/LevelingSystem.tsx`, `components/XPProgressBar.tsx`.
+    - **Sub-Tasks:**
+        - **28.1: Remove Level Titles & Icons:** In `LevelingSystem.tsx`, remove the rendering of `level.title` and the associated crown icon within the (soon-to-be-removed) rewards container.
+        - **28.2: Remove Expand/Collapse Functionality:**
+            - Remove the `expandedLevel` state variable.
+            - Remove the `onPress` handler from the level item `Pressable`.
+            - Remove the `expandedLevel === level.level && ...` conditional block entirely.
+            - Remove the `MaterialCommunityIcons` component displaying the `chevron-up`/`chevron-down` icon.
+            - Remove the `expandedLevel` style.
+        - **28.3: Highlight Current/Next Level:**
+            - Define new styles in `LevelingSystem.tsx` (e.g., `currentLevelHighlight`, `nextLevelHighlight`) with slightly different background colors or borders (e.g., `backgroundColor: '#1C1C1E'`, `borderColor: '#FFFFFF'`).
+            - In the `levelItem` `Pressable`'s style array, add conditional logic: `level.level === currentLevel && styles.currentLevelHighlight`, `level.level === currentLevel + 1 && styles.nextLevelHighlight`. Ensure locked styles still apply correctly.
+        - **28.4: Add 'How to Earn XP' Hint:**
+            - Below the `currentLevelSection` View in `LevelingSystem.tsx`, add a `<Text>` component.
+            - Set the text to: "Earn XP by completing focus sessions."
+            - Add a style (e.g., `xpHintText`) with small font size (e.g., 12), muted color (e.g., `#6B7280`), and perhaps italics or centered text.
+        - **28.5: Add Visual Separator:**
+            - Between the `currentLevelSection` View and the `levelList` View in `LevelingSystem.tsx`, add a `<View style={styles.separator} />`.
+            - Define `styles.separator`: `{ height: 1, backgroundColor: '#2C2C2E', marginVertical: 16 }`. Adjust margin as needed.
+    - **Success Criteria:**
+        - Level titles and crown icons are no longer displayed.
+        - Level list items are no longer expandable/collapsible.
+        - Chevron icons are removed from level list items.
+        - The list item for the current level has a distinct visual style.
+        - The list item for the next level has a distinct visual style.
+        - A hint text explaining XP earning is visible below the progress bar.
+        - A visual separator exists between the progress bar section and the level list.
+
 ## ✅ Project Status Board
 
 *(Updating based on current state)*
@@ -353,6 +400,21 @@ hi this is the scratch pad
   - [x] 26.6: Render StreakModal
   - [x] 26.7: Implement Close Handler
   - [x] 26.8: Pass Placeholder Data
+- [x] Task 27: Implement Leveling System Modal Interaction
+  - [x] 27.1: Add Modal State
+  - [x] 27.2: Import Components
+  - [x] 27.3: Make Indicator Pressable
+  - [x] 27.4: Implement Show Handler
+  - [x] 27.5: Render Modal
+  - [x] 27.6: Render LevelingSystem
+  - [x] 27.7: Implement Close Handler
+  - [x] 27.8: Pass Placeholder Data
+- [x] Task 28: Refine Leveling System Modal UI/UX
+  - [x] 28.1: Remove Level Titles & Icons
+  - [x] 28.2: Remove Expand/Collapse Functionality
+  - [x] 28.3: Highlight Current/Next Level
+  - [x] 28.4: Add 'How to Earn XP' Hint
+  - [x] 28.5: Add Visual Separator
 
 ## 🧑‍💻 Executor's Feedback or Assistance Requests
 

@@ -8,6 +8,7 @@ type Props = {
   currentLevelXP: number;
   showDetails?: boolean;
   compact?: boolean;
+  maxLevel?: number;
 };
 
 export default function XPProgressBar({ 
@@ -16,12 +17,20 @@ export default function XPProgressBar({
   nextLevelXP, 
   currentLevelXP,
   showDetails = true,
-  compact = false 
+  compact = false, 
+  maxLevel
 }: Props) {
+
+  const isMaxLevel = maxLevel !== undefined && currentLevel >= maxLevel;
+
   // Calculate progress percentage
   const calculateProgress = () => {
+    if (isMaxLevel) return 100; // Show full bar at max level
+
     const xpForCurrentLevel = currentXP - currentLevelXP;
     const xpNeededForNextLevel = nextLevelXP - currentLevelXP;
+    // Handle division by zero or negative XP needed if levels are configured oddly
+    if (xpNeededForNextLevel <= 0) return xpForCurrentLevel >= 0 ? 100 : 0; 
     const progress = (xpForCurrentLevel / xpNeededForNextLevel) * 100;
     return Math.min(Math.max(progress, 0), 100);
   };
@@ -30,8 +39,13 @@ export default function XPProgressBar({
     <View style={styles.container}>
       {!compact && (
         <View style={styles.levelHeader}>
-          <Text style={styles.currentLevelText}>Level {currentLevel}</Text>
-          <Text style={styles.nextLevelText}>Level {currentLevel + 1}</Text>
+          <Text style={styles.currentLevelText}>LVL {currentLevel}</Text>
+          <Text style={[
+            styles.nextLevelText, 
+            isMaxLevel && styles.maxLevelText
+          ]}>
+            {isMaxLevel ? 'MAX' : `Level ${currentLevel + 1}`}
+          </Text>
         </View>
       )}
       <View style={styles.xpProgressContainer}>
@@ -46,7 +60,9 @@ export default function XPProgressBar({
         {showDetails && (
           <View style={styles.xpInfoContainer}>
             <Text style={styles.xpRemaining}>
-              {currentXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
+              {isMaxLevel 
+                ? `${currentXP.toLocaleString()} / ${currentXP.toLocaleString()} XP`
+                : `${currentXP.toLocaleString()} / ${nextLevelXP.toLocaleString()} XP`}
             </Text>
           </View>
         )}
@@ -66,14 +82,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   currentLevelText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontFamily: 'ChakraPetch-SemiBold',
   },
   nextLevelText: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: 'bold',
+    fontSize: 14,
+    color: '#8e8e93',
+    fontFamily: 'ChakraPetch-SemiBold',
+    fontWeight: '500',
   },
   xpProgressContainer: {
     gap: 4,
@@ -98,8 +115,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   xpRemaining: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontSize: 12,
+    color: '#8e8e93',
+    fontFamily: 'ChakraPetch-SemiBold',
   },
+  maxLevelText: {
+    color: '#34C759',
+  }
 }); 
