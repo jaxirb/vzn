@@ -205,6 +205,23 @@ hi this is the scratch pad
         - Stop/reset the focus timer. Screen locks automatically after the normal auto-lock time.
         - Keep-awake is deactivated if the component unmounts while the timer is active.
 
+25. **Task 25: Implement Animated Timer Progress Circle**
+    - **Goal:** Replace the static timer circle border with an animated circular progress indicator that visually depletes clockwise as the timer runs.
+    - **References:** `react-native-svg`, `Animated` API, `isActive`, `remainingTime`, `selectedDuration`.
+    - **Sub-Tasks:**
+        - **25.1: Install Dependency:** Add `react-native-svg`.
+        - **25.2: Import:** Import `Svg`, `Circle` from `react-native-svg`. Ensure `Animated` is imported.
+        - **25.3: Define Circle Properties:** Calculate/define radius, stroke width, circumference.
+        - **25.4: Create Animated Value:** Initialize `Animated.Value` ref for progress (0 to 1).
+        - **25.5: Drive Animation with Effect:** Create `useEffect` watching `remainingTime`/`selectedDuration` to run `Animated.timing` on the progress value.
+        - **25.6: Implement SVG Structure:** Replace border style with `<Svg>` containing background `<Circle>` and foreground `Animated.Circle` using `strokeDasharray` and animated `strokeDashoffset`, applying rotation.
+        - **25.7: Place Text:** Ensure timer text renders on top of the SVG.
+    - **Success Criteria:**
+        - Inactive: Grey track visible.
+        - Active: White arc appears full, then shrinks clockwise smoothly with timer.
+        - Text remains centered and visible.
+        - Animation accurately reflects remaining time.
+
 ## ✅ Project Status Board
 
 *(Updating based on current state)*
@@ -302,12 +319,21 @@ hi this is the scratch pad
   - [x] 24.4: Activation Logic
   - [x] 24.5: Deactivation Logic
   - [x] 24.6: Cleanup Logic
+- [x] Task 25: Implement Animated Timer Progress Circle
+  - [x] 25.1: Install Dependency
+  - [x] 25.2: Import
+  - [x] 25.3: Define Circle Properties
+  - [x] 25.4: Create Animated Value
+  - [x] 25.5: Drive Animation with Effect
+  - [x] 25.6: Implement SVG Structure
+  - [x] 25.7: Place Text
 
 ## 🧑‍💻 Executor's Feedback or Assistance Requests
 
 - Task 15: Added timer interval logic. Noticed `remainingTime` state does not automatically update if `selectedDuration` changes while the timer is *inactive*. Need a separate effect or logic modification to handle this synchronization for a better UX. Will add this refinement now. *(Self-resolved with subsequent effect)*
 - Need to implement the actual background handling logic described in the tooltips (Task 23). *(Done)*
 - Need to implement screen keep-awake functionality (Task 24). *(Done)*
+- Need to implement animated progress circle (Task 25). *(Done)*
 
 ## 💡 Lessons
 
@@ -315,3 +341,4 @@ hi this is the scratch pad
 - Use placeholder elements with `opacity: 0` and `pointerEvents: 'none'` (matching the size/style of the real element) to prevent layout shifts during conditional rendering.
 - App background/foreground behavior might need different handling depending on the application's state (e.g., easy vs. hard mode).
 - Use `expo-keep-awake` (`activateKeepAwakeAsync`, `deactivateKeepAwake`) within a `useEffect` hook tied to relevant state (like a timer being active) to prevent the screen from auto-locking during critical periods.
+- Use `react-native-svg` with animated `strokeDashoffset` on a `<Circle>` element to create circular progress indicators. Remember to account for SVG starting angles (often 3 o'clock) using rotation transforms if needed (e.g., `rotate(-90)` for 12 o'clock start).

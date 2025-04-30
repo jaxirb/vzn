@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics'; // Import Haptics
 import { BlurView } from 'expo-blur'; // Import BlurView
 import { AppState } from 'react-native'; // Task 20.1: Import AppState
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'; // Task 24.2: Import keep-awake functions
+import Svg, { Circle } from 'react-native-svg'; // Task 25.2: Import SVG components
 // import { LinearGradient } from 'expo-linear-gradient'; // Reverted: Removed import
 
 import { ThemedText } from '@/components/ThemedText';
@@ -50,7 +51,20 @@ const StartFocusButton = () => {
 };
 // ----------------------------------- //
 
+// Task 25.6: Create Animated SVG Circle component
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// --- Constants for SVG Circle --- //
+const CIRCLE_SIZE = 250;
+const STROKE_WIDTH = 5;
+const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+const CIRCUMFERENCE = RADIUS * 2 * Math.PI;
+const CIRCLE_CENTER = CIRCLE_SIZE / 2;
+const BACKGROUND_COLOR = '#333333'; // Match old border color
+const FOREGROUND_COLOR = '#FFFFFF'; // White progress
+
 export default function HomeScreen() {
+  // --- State Variables --- //
   const [selectedDuration, setSelectedDuration] = useState<number>(25);
   const [isPickerVisible, setIsPickerVisible] = useState<boolean>(false);
   const [focusMode, setFocusMode] = useState<FocusMode>('easy');
@@ -71,61 +85,76 @@ export default function HomeScreen() {
   // Task 20: Ref to track if pause was due to app backgrounding
   const appStatePausedRef = useRef<boolean>(false);
 
+  // Represents the progress of the WHITE circle (0=empty, 1=full)
+  const progressAnimation = useRef(new Animated.Value(0)).current; 
+
+  // --- Callback Functions --- //
+  const handleReset = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setIsActive(false);
+    setIsPaused(false);
+    setRemainingTime(selectedDuration * 60);
+    console.log("Timer reset.");
+  }, [selectedDuration]);
+
+  // --- Effect to sync remainingTime with selectedDuration when timer is NOT active --- //
+  useEffect(() => {
+    if (!isActive) {
+      setRemainingTime(selectedDuration * 60);
+      // Also ensure animation reflects the potential new duration when inactive (shows empty circle)
+      progressAnimation.setValue(0); 
+    }
+    // No cleanup needed, depends on duration changes or timer becoming inactive
+  }, [selectedDuration, isActive, progressAnimation]); 
+
   // --- Timer Logic --- //
   useEffect(() => {
     if (isActive && !isPaused) {
-      // Start the timer
       intervalRef.current = setInterval(() => {
         setRemainingTime((prevTime) => {
           if (prevTime <= 1) {
-            // Timer finished (Task 18 logic will go here)
-            clearInterval(intervalRef.current!); // Clear interval immediately
+            clearInterval(intervalRef.current!); 
             setIsActive(false);
-            // TODO: Handle completion: show summary, play sound, etc.
             console.log("Timer finished!");
-            return selectedDuration * 60; // Reset for now, or handle differently
+            return selectedDuration * 60;
           }
-          return prevTime - 1;
+          return prevTime - 1; 
         });
       }, 1000);
     } else {
-      // Clear the interval if timer is not active or is paused
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     }
-
-    // Cleanup function to clear interval when component unmounts or dependencies change
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isActive, isPaused]); // Removed selectedDuration from here, handled below
+  }, [isActive, isPaused]); 
 
-  // Effect to sync remainingTime with selectedDuration when timer is NOT active
+  // --- Animation Effect for Progress Circle --- //
   useEffect(() => {
-    if (!isActive) {
-      setRemainingTime(selectedDuration * 60);
+    let targetProgress = 0; // Default to 0 (grey track) when inactive
+    if (isActive) {
+      const totalDurationSeconds = selectedDuration * 60;
+      const currentProgress = totalDurationSeconds > 0 ? remainingTime / totalDurationSeconds : 0;
+      targetProgress = Math.max(0, Math.min(1, currentProgress)); 
     }
-    // No cleanup needed for this effect
-  }, [selectedDuration, isActive]); // Run when duration changes OR when timer becomes inactive
+    
+    // Animate the progress value
+    Animated.timing(progressAnimation, {
+      toValue: targetProgress, 
+      duration: 300, 
+      useNativeDriver: false, 
+    }).start();
 
-  // Task 17: Handle Reset/Cancel
-  const handleReset = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
-    if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-    }
-    setIsActive(false);
-    setIsPaused(false);
-    // Reset remaining time to the currently selected duration
-    setRemainingTime(selectedDuration * 60);
-    console.log("Timer reset.");
-    // TODO: Handle XP calculation for cancelled session later
-  }, [selectedDuration]); // Add selectedDuration as dependency
+  }, [isActive, remainingTime, selectedDuration, progressAnimation]);
 
   // --- Confirmation Dialog for Reset --- //
   const handleConfirmReset = () => {
@@ -371,17 +400,48 @@ export default function HomeScreen() {
 
       {/* Center Timer Section */}
       <View style={styles.centerContent}>
-        {/* Task 21 (TwentySecond Rev): Group Timer Display Elements */}
         <View style={styles.timerDisplayGroup}>
-          {/* Timer Circle - Now contains the Timer Text */}
-          <View style={styles.timerCircle}>
-            {/* Timer Text - Moved inside */}
-            <Text style={styles.timerText}>
-              {formatDuration(remainingTime)}
-            </Text>
+          {/* Task 25.6: SVG Implementation */}
+          {/* Applying width/height inline, borderRadius from styles */}
+          <View style={[styles.timerCircle, { width: CIRCLE_SIZE, height: CIRCLE_SIZE }]}>
+            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} viewBox={`0 0 ${CIRCLE_SIZE} ${CIRCLE_SIZE}`}>
+              {/* Static Grey Background Circle */}
+              <Circle
+                cx={CIRCLE_CENTER}
+                cy={CIRCLE_CENTER}
+                r={RADIUS}
+                stroke={BACKGROUND_COLOR} // Grey
+                strokeWidth={STROKE_WIDTH}
+                fill="transparent"
+              />
+              {/* Animated White Foreground Circle (Appears/Disappears Counter-Clockwise) */}
+              <AnimatedCircle
+                cx={CIRCLE_CENTER}
+                cy={CIRCLE_CENTER}
+                r={RADIUS}
+                stroke={FOREGROUND_COLOR} // White
+                strokeWidth={STROKE_WIDTH}
+                fill="transparent"
+                strokeDasharray={CIRCUMFERENCE} 
+                strokeDashoffset={progressAnimation.interpolate({
+                  inputRange: [0, 1],
+                  // progress=0 -> offset=CIRCUMFERENCE (white invisible)
+                  // progress=1 -> offset=0 (white full)
+                  outputRange: [CIRCUMFERENCE, 0], // Back to original range
+                  extrapolate: 'clamp',
+                })}
+                transform={`rotate(-90 ${CIRCLE_CENTER} ${CIRCLE_CENTER})`}
+              />
+            </Svg>
+            {/* Timer Text - Rendered on top */}
+            <View style={styles.timerTextContainer}>
+              <Text style={styles.timerText}>
+                {formatDuration(remainingTime)}
+              </Text>
+            </View>
           </View>
-          {/* Timer Text REMOVED from here */}
-        </View> // End of timerDisplayGroup
+        </View> 
+        {/* End of timerDisplayGroup */}
 
         {/* Task 27: New Button Area */}
         <View style={styles.buttonArea}>
@@ -588,20 +648,19 @@ const styles = StyleSheet.create({
     marginTop: 15, // Reduced further from 20
   },
   timerCircle: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    borderWidth: 5,
-    borderColor: '#333333',
+    // width: CIRCLE_SIZE, // Applied inline
+    // height: CIRCLE_SIZE, // Applied inline
+    borderRadius: CIRCLE_SIZE / 2, // Use constant from module scope
     justifyContent: 'center',
     alignItems: 'center',
-    // Ensure button removal didn't break something, style seems ok
+    position: 'relative',
   },
   timerText: {
-    fontSize: 24,
+    fontSize: 30, // Changed size to 30
     color: '#FFFFFF',
     fontFamily: 'ChakraPetch-SemiBold',
     fontWeight: '600',
+    pointerEvents: 'none',
   },
   modeText: { // Style remains but component is removed
     fontSize: 18,
@@ -817,5 +876,13 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
     fontFamily: 'Inter-Medium',
     textAlign: 'center',
+  },
+  // Task 25.7: Style for positioning text over SVG
+  timerTextContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Ensure it doesn't block touch events if it covers the whole circle
+    pointerEvents: 'none', 
   },
 });
