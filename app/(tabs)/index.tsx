@@ -12,6 +12,8 @@ import { ProfileContext, useProfile } from '@/contexts/ProfileContext'; // Impor
 import { LEVELS } from '@/lib/levels'; // Import level definitions (Corrected name)
 import { supabase } from '@/services/supabase'; // Import supabase client
 import { Profile } from '@/services/supabase'; // Ensure Profile type is imported
+import { Colors } from '@/constants/Colors'; // Import Colors
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
 // import { LinearGradient } from 'expo-linear-gradient'; // Reverted: Removed import
 
 import { ThemedText } from '@/components/ThemedText';
@@ -19,6 +21,7 @@ import { ThemedView } from '@/components/ThemedView'; // Restore import
 import CustomDurationPicker from '@/components/focus/CustomDurationPicker'; // Import Picker
 import StreakModal from '@/components/StreakModal'; // Task 26.2: Import StreakModal
 import LevelingSystem from '@/components/LevelingSystem'; // Task 27.2: Import LevelingSystem
+import SettingsModal from '@/components/SettingsModal'; // M2.2: Import SettingsModal
 
 // Import the new modals
 import SessionSummaryModal from '@/components/modals/SessionSummaryModal';
@@ -54,6 +57,9 @@ type PostSessionData = {
   currentXP: number; 
   xpRequiredForNextLevel: number | null; // Null if max level
 };
+
+// --- Vibration Setting Key ---
+const VIBRATION_SETTING_KEY = '@AppSettings:vibrationEnabled';
 
 // --- Helper Functions --- //
 const formatDuration = (totalSeconds: number): string => {
@@ -127,6 +133,9 @@ export default function HomeScreen() {
   // Task 27.1: Leveling System Modal State
   const [isLevelModalVisible, setIsLevelModalVisible] = useState<boolean>(false);
 
+  // M2.1: Settings Modal State
+  const [isSettingsModalVisible, setIsSettingsModalVisible] = useState<boolean>(false);
+
   // --- B8.1: State for Modal Orchestration ---
   const [postSessionInfo, setPostSessionInfo] = useState<PostSessionData | null>(null);
   const [modalQueue, setModalQueue] = useState<ModalType[]>([]);
@@ -168,9 +177,29 @@ export default function HomeScreen() {
   };
   const progressPercentage = calculateProgressPercentage();
 
+  // --- State for Vibration Setting ---
+  const [isVibrationEnabled, setIsVibrationEnabled] = useState(true); // Default true
+
+  // --- Load Vibration Setting --- //
+  useEffect(() => {
+    const loadVibrationSetting = async () => {
+      try {
+        const storedValue = await AsyncStorage.getItem(VIBRATION_SETTING_KEY);
+        setIsVibrationEnabled(storedValue !== null ? JSON.parse(storedValue) : true);
+        console.log('[Vibration] Setting loaded:', storedValue);
+      } catch (e) {
+        console.error('[Vibration] Failed to load setting:', e);
+      }
+    };
+    loadVibrationSetting();
+    // Load only once on mount
+  }, []);
+
   // --- Callback Functions --- //
   const handleReset = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isVibrationEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -180,7 +209,7 @@ export default function HomeScreen() {
     setRemainingTime(selectedDuration * 60);
     setCompletedSessionDuration(0); // B6.5: Reset stored duration
     console.log("Timer reset.");
-  }, [selectedDuration]);
+  }, [selectedDuration, isVibrationEnabled]);
 
   // --- B7.2: Handler for Development Complete Button ---
   const handleDevCompleteSession = async () => {
@@ -196,7 +225,9 @@ export default function HomeScreen() {
     const oldXPBeforeFetch = profile?.xp ?? 0; // Capture old XP
 
     console.log(`[Dev Button] Simulating session completion. Duration: ${durationCompleted} mins, Mode: ${modeCompletedIn}`);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // Haptic feedback for dev action
+    if (isVibrationEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // Haptic feedback for dev action
+    }
 
     try {
       console.log(`[Dev Button] Invoking award-xp function...`);
@@ -274,7 +305,9 @@ export default function HomeScreen() {
     } catch (error: any) {
       console.error('[Dev Button] Error invoking award-xp function:', error);
       Alert.alert('Dev Error', `Failed to award XP: ${error.message}`);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (isVibrationEnabled) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
 
     } finally {
       // Reset the timer UI regardless of success/failure
@@ -433,7 +466,9 @@ export default function HomeScreen() {
                 // if (oldLevelBeforeFetch && newLevel && newLevel > oldLevelBeforeFetch) {
                 //     Alert.alert('Level Up!', `Congratulations! You reached level ${newLevel}!`);
                 // }
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                if (isVibrationEnabled) {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
 
               })
               // Removed the second .then() block as logic moved into the first one
@@ -441,7 +476,9 @@ export default function HomeScreen() {
                 // B6.7: Handle failure
                 console.error('Error awarding XP or processing result:', error);
                 Alert.alert('Error', 'Could not save session progress. Please try again later.');
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                if (isVibrationEnabled) {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                }
               })
               .finally(() => {
                 // B6.7: Reset UI state regardless of success/failure
@@ -616,7 +653,9 @@ export default function HomeScreen() {
         Alert.alert("Select Duration", "Please select a focus duration first.");
         return;
       }
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on start
+      if (isVibrationEnabled) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on start
+      }
       setCompletedSessionDuration(selectedDuration); // B6.4: Store duration
       // Ensure remainingTime is correctly set based on stored duration before starting
       setRemainingTime(selectedDuration * 60);
@@ -625,7 +664,9 @@ export default function HomeScreen() {
       console.log(`Timer started for ${selectedDuration} minutes.`);
     } else if (!isPaused && focusMode === 'easy') {
       // Pause (Easy Mode Only)
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on pause/resume
+      if (isVibrationEnabled) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on pause/resume
+      }
       setIsPaused(!isPaused);
       console.log(isPaused ? "Timer resumed." : "Timer paused.");
     }
@@ -636,7 +677,9 @@ export default function HomeScreen() {
   // const handleReset = () => { ... };
 
   const handlePresetSelect = (duration: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Add haptic feedback
+    if (isVibrationEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Add haptic feedback
+    }
     setSelectedDuration(duration);
   };
 
@@ -648,7 +691,9 @@ export default function HomeScreen() {
 
   // Task 12.1: Handler for mode select
   const handleModeSelect = (mode: FocusMode) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Add haptic feedback
+    if (isVibrationEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Add haptic feedback
+    }
     setFocusMode(mode);
 
     // Always clear existing timeout
@@ -692,7 +737,9 @@ export default function HomeScreen() {
   };
 
   const handleOpenPicker = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Add haptic feedback
+    if (isVibrationEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Add haptic feedback
+    }
     setIsPickerVisible(true);
   }
 
@@ -730,7 +777,9 @@ export default function HomeScreen() {
       {/* Spacer */}
       <View style={{ flex: 1 }} /> 
       {/* Settings Icon */}
-      <MaterialCommunityIcons name="cog" size={20} color="white" />
+      <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)} style={styles.settingsIcon} disabled={isActive}>
+        <Ionicons name="settings-outline" size={24} color={isActive ? 'transparent' : Colors.dark.icon} />
+      </TouchableOpacity>
     </View>
   );
 
@@ -1016,10 +1065,15 @@ export default function HomeScreen() {
           onClose={handleCloseLevelModal} // Pass the close handler
           currentLevel={currentLevel}
           currentXP={currentXP}
-          // Calculate xpForNextLevel inline
-          xpForNextLevel={LEVELS.find(l => l.level === currentLevel + 1)?.xpRequired ?? currentXP}
+          xpForNextLevel={nextLevelXP}
         />
       </Modal>
+
+      {/* M2.5: Render Settings Modal */}
+      <SettingsModal 
+        isVisible={isSettingsModalVisible}
+        onClose={() => setIsSettingsModalVisible(false)}
+      />
 
       {/* --- B8.5: Post-Session Modals --- */}
       {postSessionInfo && (
@@ -1333,5 +1387,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', // Center icon horizontally
     justifyContent: 'center', // Center icon vertically
     zIndex: 10,
+  },
+  settingsIcon: {
+    padding: 10,
   },
 });

@@ -715,3 +715,108 @@ The core Vzn experience relies on a motivating feedback loop driven by XP, level
 *   Streak logic requires careful handling of timestamps (UTC comparison) and only updating `last_session_timestamp` on *qualifying* sessions (>= 25 min) to avoid blocking subsequent streak increments within the same day.
 
 ---
+
+## 🚀 New Request: Settings & Compliance Modals
+
+### Background and Motivation
+
+As the app matures and prepares for broader use (including potential App Store submission), it requires standard user controls and compliance elements. This involves creating a **Settings modal**, accessible from the main timer screen, where users can manage preferences (like notifications, sounds - though functionality might be deferred), log out, and access legal information like the Privacy Policy and Terms of Service, as outlined in the PRD.
+
+### Key Challenges and Analysis
+
+1.  **Modal Integration:** Triggering and displaying the modal correctly from the existing gear icon in `app/(tabs)/index.tsx` top bar. Requires state management in `index.tsx`.
+2.  **State Management (Toggles):** Where should toggle states (notifications, sound, vibration) be stored?
+    *   *Local `AsyncStorage`*: Simpler for MVP, device-specific.
+    *   *Backend Profile*: Synced across devices, but adds complexity.
+    *   **Decision (MVP):** Use local `AsyncStorage` for simplicity. Implement UI first, persistence later if needed. Actual sound/vibration/notification *functionality* tied to these toggles is out of scope for the initial UI build.
+3.  **Compliance Content Display:** How to show Privacy Policy/Terms from within a modal?
+    *   *Nested Modals*: Could display a WebView, but adds complexity.
+    *   *Linking API*: Open external URLs in the device browser. Simpler.
+    *   **Decision (MVP):** Use the `Linking` API to open placeholder URLs in the browser. Requires importing `Linking` from `react-native`.
+4.  **Logout Flow:** Ensure logout correctly clears the session (using existing Supabase context/client) and triggers the redirect handled by the root layout (`app/_layout.tsx`).
+
+### High-level Task Breakdown (Settings Modal)
+
+*(Note: These tasks assume Executor proceeds one step at a time, seeking user confirmation after each)*
+
+1.  **Task M1: Create `SettingsModal.tsx` Component UI**
+    *   **Goal:** Create the reusable modal component with the settings UI structure.
+    *   **References:** PRD, `Modal`, `View`, `ScrollView`, `ThemedView`, `ThemedText`, `Switch` (from `react-native`), `TouchableOpacity`, `@expo/vector-icons`.
+    *   **Sub-Tasks:**
+        *   M1.1: Create `components/SettingsModal.tsx` file.
+        *   M1.2: Define component props: `isVisible: boolean`, `onClose: () => void`.
+        *   M1.3: Use the `Modal` component from `react-native` as the root, controlled by `isVisible`, with `animationType="slide"` and `transparent={true}`.
+        *   M1.4: Inside `Modal`, create a backdrop `Pressable` that calls `onClose`.
+        *   M1.5: Create the main modal content container (`ThemedView`) with rounded corners, padding, etc.
+        *   M1.6: Add a close button ('X' icon) inside the content container that calls `onClose`.
+        *   M1.7: Structure the content using `ScrollView` or `View`.
+        *   M1.8: **Account Section:** Add a \"Logout\" `TouchableOpacity` styled like a button or list item.
+        *   M1.9: **Preferences Section:** Add rows for \"Notifications\", \"Sounds\", \"Vibrations\". Each row should contain `ThemedText` label and a `Switch` component (initially uncontrolled/non-functional).
+        *   M1.10: **Legal Section:** Add rows/`TouchableOpacity` items for \"Privacy Policy\" and \"Terms of Service\".
+        *   M1.11: **Support Section:** Add a row/`TouchableOpacity` for \"Support\" or \"Help\".
+        *   M1.12: Apply basic styling for spacing, separators, and visual grouping within the modal.
+    *   **Success Criteria:** The `SettingsModal.tsx` component exists and defines the visual structure of the settings modal, including sections, placeholders (buttons, labels, switches, links), and a close mechanism. It accepts `isVisible` and `onClose` props. The component itself doesn't *do* anything functional yet, just displays the UI within a standard modal presentation.
+
+2.  **Task M2: Integrate Settings Modal Trigger in `index.tsx`**
+    *   **Goal:** Make the gear icon in the top bar of `app/(tabs)/index.tsx` open the `SettingsModal`.
+    *   **References:** `app/(tabs)/index.tsx`, `useState`, `TouchableOpacity`, `SettingsModal.tsx`.
+    *   **Sub-Tasks:**
+        *   M2.1: In `app/(tabs)/index.tsx`, add state `[isSettingsModalVisible, setIsSettingsModalVisible]` initialized to `false`.
+        *   M2.2: Import the `SettingsModal` component.
+        *   M2.3: Locate the gear icon `TouchableOpacity` in the `topBar`.
+        *   M2.4: Add/Modify the `onPress` handler of the gear icon to call `setIsSettingsModalVisible(true)`.
+        *   M2.5: At the bottom of the main `View` in `HomeScreen`, render `<SettingsModal isVisible={isSettingsModalVisible} onClose={() => setIsSettingsModalVisible(false)} />`.
+    *   **Success Criteria:** Tapping the gear icon in the top bar opens the Settings modal. Tapping the modal backdrop or the close ('X') button within the modal dismisses it.
+
+3.  **Task M3: Implement Logout Functionality**
+    *   **Goal:** Make the Logout button in the `SettingsModal` functional.
+    *   **References:** `SettingsModal.tsx`, `ProfileContext` (or equivalent auth state management), `supabase.auth.signOut()`.
+    *   **Sub-Tasks:**
+        *   M3.1: Import necessary auth context/functions into `SettingsModal.tsx`.
+        *   M3.2: Add an `onPress` handler to the \"Logout\" `TouchableOpacity`.
+        *   M3.3: Inside the handler, call the Supabase `signOut()` function. Handle potential errors (e.g., display an `Alert`). Call `onClose` after initiating sign out.
+        *   M3.4: Verify that the existing navigation logic in `app/_layout.tsx` correctly observes the auth state change and redirects to the `(auth)` flow.
+    *   **Success Criteria:** Pressing the Logout button in the Settings modal successfully signs the user out, closes the modal, clears the session, and navigates the user back to the login/signup screen.
+
+4.  **Task M4: Implement Compliance Links (`Linking`)**
+    *   **Goal:** Make the Privacy Policy and Terms of Service links open placeholder URLs in the browser.
+    *   **References:** `SettingsModal.tsx`, `Linking` from `react-native`.
+    *   **Sub-Tasks:**
+        *   M4.1: Import `Linking` from `react-native` in `SettingsModal.tsx`.
+        *   M4.2: Define placeholder URLs (e.g., `PRIVACY_URL = 'https://example.com/privacy'`, `TERMS_URL = 'https://example.com/terms'`).
+        *   M4.3: Add `onPress` handlers to the \"Privacy Policy\" and \"Terms of Service\" `TouchableOpacity` items.
+        *   M4.4: Inside the handlers, call `Linking.openURL(URL)`. Add basic error handling (e.g., `Alert.alert('Could not open URL')`).
+    *   **Success Criteria:** Tapping \"Privacy Policy\" or \"Terms of Service\" in the Settings modal opens the corresponding placeholder URL in the device's default web browser.
+
+5.  **Task M5: Implement Settings State Persistence (Local Storage - Optional MVP Stretch)**
+    *   **Goal:** Make the preference toggles functional and persist their state locally within the `SettingsModal`.
+    *   **References:** `SettingsModal.tsx`, `useState`, `useEffect`, `@react-native-async-storage/async-storage`.
+    *   **Sub-Tasks:**
+        *   M5.1: Install `@react-native-async-storage/async-storage` (`npx expo install @react-native-async-storage/async-storage`).
+        *   M5.2: Add `useState` variables in `SettingsModal.tsx` for each toggle (e.g., `notificationsEnabled`, `soundEnabled`, `vibrationEnabled`).
+        *   M5.3: Create functions `loadSettings()` and `saveSetting(key, value)` using `AsyncStorage.getItem` and `AsyncStorage.setItem`.
+        *   M5.4: Use a `useEffect` hook to call `loadSettings()` when the modal becomes visible (`isVisible` prop changes to true).
+        *   M5.5: Wire the `value` and `onValueChange` props of each `Switch` to the corresponding state variable and a handler that updates the state *and* calls `saveSetting`.
+    *   **Success Criteria:** Toggles on the Settings modal reflect saved preferences. Changing a toggle updates the display and persists the value locally, so it remains the same after closing and reopening the modal/app. (Actual sound/vibration/notification *effects* are not part of this task).
+
+*   [x] M5.5: Wire Switches to state and save
+
+*   [x] Task M6: Implement Vibration Toggle Functionality
+    *   [x] M6.1: Load vibration setting in `index.tsx`
+    *   [x] M6.2: Conditionally trigger `Haptics` calls based on setting
+
+### Executor's Feedback or Assistance Requests
+*   Plan revised to use a modal instead of a tab for Settings.
+*   Task M1 & M2 complete. Settings modal UI created and trigger integrated.
+*   Task M3 (Logout Logic) implemented and verified.
+*   Task M4 (Compliance Links) revised, implemented using in-app screens, and verified.
+*   Task M5 (State Persistence) implemented and verified.
+*   Task M6 (Vibration Toggle Functionality) implemented and verified.
+*   Help & Support link implemented using `mailto:`, requires physical device for full testing.
+*   Settings & Compliance Modal feature, including vibration toggle and style refinements, is complete.
+*   Awaiting next user request.
+
+
+
+### Lessons
+*   Supabase Edge Function secret names cannot start with the reserved `SUPABASE_` prefix.

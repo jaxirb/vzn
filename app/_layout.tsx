@@ -14,6 +14,7 @@ import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { supabase } from '@/services/supabase';
 import { Session } from '@supabase/supabase-js';
 import { ProfileProvider } from '@/contexts/ProfileContext';
+import { Colors } from '@/constants/Colors';
 
 // Prevent the splash screen from auto-hiding.
 SplashScreen.preventAutoHideAsync();
@@ -62,6 +63,7 @@ function useProtectedRoute(
       if (!session) {
         if (!inAuthGroup) {
           console.log('[Auth Guard] No session and outside Auth group. Redirecting to /auth.');
+          console.log(`[Auth Guard] Current Navigating Flag BEFORE redirect attempt: ${isNavigating.current}`);
           navigateSafely('/(auth)');
         } else {
           console.log('[Auth Guard] No session but already in Auth group. Staying.');
@@ -220,6 +222,17 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="(auth)" /> 
             <Stack.Screen name="onboarding" />
+            <Stack.Screen 
+              name="compliance" 
+              options={({ route }) => ({ 
+                title: (route.params as { title?: string })?.title ?? 'Info',
+                headerShown: true,
+                headerBackTitle: 'Home',
+                headerStyle: { backgroundColor: Colors.dark.background },
+                headerTintColor: Colors.dark.text,
+                headerTitleStyle: { color: Colors.dark.text },
+              })} 
+            />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />
