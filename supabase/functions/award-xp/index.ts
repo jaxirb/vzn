@@ -189,58 +189,79 @@ serve(async (req: Request) => {
 
     if (sessionDurationMinutes >= 25 && finalXpAwarded > 0) { 
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Start of today
-        const yesterday = new Date(today); 
-        yesterday.setDate(today.getDate() - 1); // Start of yesterday
+        // Use UTC dates for comparison
+        const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const yesterdayUTC = new Date(todayUTC);
+        yesterdayUTC.setUTCDate(todayUTC.getUTCDate() - 1); // Start of yesterday UTC
 
-        let lastSessionDate: Date | null = null;
+        let lastSessionDateUTC: Date | null = null;
         if (profile.last_session_timestamp) {
             const lastTimestamp = new Date(profile.last_session_timestamp);
-            lastSessionDate = new Date(lastTimestamp.getFullYear(), lastTimestamp.getMonth(), lastTimestamp.getDate());
+            // Extract UTC date parts from the stored timestamp
+            lastSessionDateUTC = new Date(Date.UTC(lastTimestamp.getUTCFullYear(), lastTimestamp.getUTCMonth(), lastTimestamp.getUTCDate())); 
         }
 
-        console.log(`[award-xp] Streak Check: Today=${today.toISOString()}, Yesterday=${yesterday.toISOString()}, LastSessionDate=${lastSessionDate?.toISOString()}`);
-
-        if (!lastSessionDate || lastSessionDate.getTime() < yesterday.getTime()) {
-            // If no previous session or last session was before yesterday, start new streak
+        // Compare dates based on the start of the day in UTC
+        if (!lastSessionDateUTC || lastSessionDateUTC.getTime() < yesterdayUTC.getTime()) {
+            // Case 1: No previous session OR last session was before yesterday (UTC) -> Reset streak to 1
+            console.log(`[award-xp] Streak Debug: Hitting CASE 1 (Reset). Last UTC: ${lastSessionDateUTC?.toISOString() ?? 'None'}, Yesterday UTC: ${yesterdayUTC.toISOString()}`);
             newStreak = 1;
-            console.log(`[award-xp] Streak reset/started.`);
-        } else if (lastSessionDate.getTime() === yesterday.getTime()) {
-            // If last session was yesterday, increment streak
-            newStreak++;
-            console.log(`[award-xp] Streak incremented.`);
+            streakUpdated = true;
+        } else if (lastSessionDateUTC.getTime() === yesterdayUTC.getTime()) {
+            // Case 2: Last session was exactly yesterday (UTC) -> Increment streak
+            console.log(`[award-xp] Streak Debug: Hitting CASE 2 (Increment). Current profile streak: ${profile.streak}. Last UTC: ${lastSessionDateUTC.toISOString()}, Yesterday UTC: ${yesterdayUTC.toISOString()}`);
+            newStreak = profile.streak + 1;
+            streakUpdated = true;
+        } else if (lastSessionDateUTC.getTime() === todayUTC.getTime()) {
+            // Case 3: Last session was earlier today (UTC) -> Do nothing to streak number
+            console.log(`[award-xp] Streak Debug: Hitting CASE 3 (Same Day). Streak remains ${profile.streak}. Last UTC: ${lastSessionDateUTC.toISOString()}, Today UTC: ${todayUTC.toISOString()}`);
         } else {
-            // If last session was today, streak stays the same
-             console.log(`[award-xp] Streak maintained (already active today).`);
+             // Case 4: Unexpected date (e.g., future)
+             console.log(`[award-xp] Streak Debug: Hitting CASE 4 (Unexpected Date). Resetting. Last UTC: ${lastSessionDateUTC?.toISOString()}, Today UTC: ${todayUTC.toISOString()}`);
+             newStreak = 1;
+             streakUpdated = true;
         }
 
         if (newStreak > newLongestStreak) {
             newLongestStreak = newStreak;
+            streakUpdated = true;
             console.log(`[award-xp] New longest streak achieved: ${newLongestStreak}`);
         }
 
-        newLastSessionTimestamp = now.toISOString(); // Update to current time
-        streakUpdated = true;
+        // Timestamp is only updated for qualifying sessions
+        newLastSessionTimestamp = now.toISOString(); 
+        streakUpdated = true; // Ensure timestamp update happens if this block runs
+        console.log(`[award-xp] Updating last_session_timestamp for user ${userId} to ${newLastSessionTimestamp}`);
+
     } else {
-         console.log(`[award-xp] Session duration (${sessionDurationMinutes} min) or final XP awarded (${finalXpAwarded}) insufficient for streak update.`);
+         console.log(`[award-xp] Session duration (${sessionDurationMinutes} min) or final XP awarded (${finalXpAwarded}) insufficient for streak calculation/increment.`);
     }
     // --- End Streak Calculation --- 
 
-    // 8. Update profile in database (including streak info if updated)
-    const updates: Partial<ProfileDataForUpdate> = {
-        xp: newTotalXp,
-        level: newLevel,
+    // 8. Prepare data for update
+    const updateData: {
+      xp: number;
+      level: number;
+      streak?: number;
+      longest_streak?: number;
+      last_session_timestamp?: string | null; 
+    } = {
+      xp: newTotalXp,
+      level: newLevel,
     };
-    if (streakUpdated) {
-        updates.streak = newStreak;
-        updates.longest_streak = newLongestStreak;
-        updates.last_session_timestamp = newLastSessionTimestamp;
+
+    // Include streak fields only if streak logic ran and indicated a change
+    if (streakUpdated) { 
+        updateData.streak = newStreak;
+        updateData.longest_streak = newLongestStreak;
+        updateData.last_session_timestamp = newLastSessionTimestamp; 
     }
 
-    // Specify expected type for the update result (can include all potentially updated fields)
+    // 9. Update user profile in the database
+    console.log(`[award-xp] Updating profile for user ${userId} with:`, updateData);
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
-      .update(updates)
+      .update(updateData)
       .eq('id', userId)
       .select('xp, level, streak, longest_streak, last_session_timestamp') // Select all updated fields
       .single<ProfileDataForUpdate>(); // Use updated interface
@@ -251,7 +272,7 @@ serve(async (req: Request) => {
     }
     console.log(`[award-xp] Profile updated for user ${userId}:`, updatedProfile);
 
-    // 9. Return success response with updated data
+    // 10. Return success response with updated data
     return new Response(JSON.stringify({ 
         success: true, 
         xpEarned: finalXpAwarded, // Return the final awarded XP

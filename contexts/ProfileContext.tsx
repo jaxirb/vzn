@@ -9,7 +9,7 @@ interface ProfileContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  fetchProfile: () => Promise<void>; // Function to manually refetch profile
+  fetchProfile: () => Promise<Profile | null>; // Modified return type
   signOut: () => Promise<void>;
 }
 
@@ -61,12 +61,12 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
   }, []);
 
   // Function to fetch profile data
-  const fetchProfile = async () => {
+  const fetchProfile = async (): Promise<Profile | null> => { // Modified return type
     if (!user) {
       console.log('[ProfileContext] fetchProfile skipped: No user');
       setProfile(null);
       setLoading(false);
-      return; 
+      return null; // Return null when no user
     }
     
     console.log(`[ProfileContext] Attempting to fetch profile for user: ${user.id}`);
@@ -81,6 +81,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       if (error && status !== 406) {
         console.error('[ProfileContext] Error fetching profile:', error);
         setProfile(null);
+        return null; // Return null on error
       } else if (data) {
         console.log('[ProfileContext] Profile fetched successfully:', data);
         
@@ -115,13 +116,17 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         setProfile(profileDataToSet);
         // --- End Task B4.2 --- //
 
+        return profileDataToSet; // Return the fetched (and potentially modified) profile
+
       } else {
         console.log('[ProfileContext] No profile found, user might be new or trigger failed.');
         setProfile(null); // Ensure profile is null if not found
+        return null; // Return null if not found
       }
     } catch (error) { 
       console.error('[ProfileContext] Exception during profile fetch:', error);
       setProfile(null);
+      return null; // Return null on exception
     } finally {
       setLoading(false);
     }
@@ -160,6 +165,9 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
     loading,
     fetchProfile,
     signOut,
+  // IMPORTANT: fetchProfile is a function reference, adding it to dependencies is usually unnecessary 
+  // unless the function identity itself changes, which it doesn't here. Including it can cause 
+  // infinite loops if not careful. We'll rely on user/session changes to trigger context updates.
   }), [session, user, profile, loading]);
 
   return (

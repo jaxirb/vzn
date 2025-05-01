@@ -11,13 +11,19 @@ import Svg, { Circle } from 'react-native-svg'; // Task 25.2: Import SVG compone
 import { ProfileContext, useProfile } from '@/contexts/ProfileContext'; // Import useProfile hook
 import { LEVELS } from '@/lib/levels'; // Import level definitions (Corrected name)
 import { supabase } from '@/services/supabase'; // Import supabase client
+import { Profile } from '@/services/supabase'; // Ensure Profile type is imported
 // import { LinearGradient } from 'expo-linear-gradient'; // Reverted: Removed import
 
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView'; // Reverted: Uncommented import
+import { ThemedView } from '@/components/ThemedView'; // Restore import
 import CustomDurationPicker from '@/components/focus/CustomDurationPicker'; // Import Picker
 import StreakModal from '@/components/StreakModal'; // Task 26.2: Import StreakModal
 import LevelingSystem from '@/components/LevelingSystem'; // Task 27.2: Import LevelingSystem
+
+// Import the new modals
+import SessionSummaryModal from '@/components/modals/SessionSummaryModal';
+import StreakIncreaseModal from '@/components/modals/StreakIncreaseModal';
+import LevelUpModal from '@/components/modals/LevelUpModal';
 
 // Define the structure of a level object based on usage from LevelingSystem
 type Level = {
@@ -28,6 +34,26 @@ type Level = {
 
 // --- Types --- //
 type FocusMode = 'easy' | 'hard';
+
+// --- B8.1: Types for Post-Session Modals ---
+type ModalType = 'summary' | 'streak' | 'level';
+
+type PostSessionData = {
+  duration: number;
+  xpEarned: number; // Total XP awarded by the function
+  baseXPEarned: number; // XP before hard mode bonus
+  bonusXPEarned: number; // Extra XP from hard mode bonus
+  wasHardMode: boolean;
+  oldLevel: number;
+  newLevel: number;
+  levelChanged: boolean;
+  oldStreak: number;
+  newStreak: number;
+  streakChanged: boolean;
+  oldXP: number;
+  currentXP: number; 
+  xpRequiredForNextLevel: number | null; // Null if max level
+};
 
 // --- Helper Functions --- //
 const formatDuration = (totalSeconds: number): string => {
@@ -101,6 +127,10 @@ export default function HomeScreen() {
   // Task 27.1: Leveling System Modal State
   const [isLevelModalVisible, setIsLevelModalVisible] = useState<boolean>(false);
 
+  // --- B8.1: State for Modal Orchestration ---
+  const [postSessionInfo, setPostSessionInfo] = useState<PostSessionData | null>(null);
+  const [modalQueue, setModalQueue] = useState<ModalType[]>([]);
+
   // Placeholder state for actual user progress (Task: Max Level Display)
   const [userLevel, setUserLevel] = useState<number>(1); // Reverted placeholder
   const [userXP, setUserXP] = useState<number>(50); // Reverted placeholder
@@ -152,6 +182,143 @@ export default function HomeScreen() {
     console.log("Timer reset.");
   }, [selectedDuration]);
 
+  // --- B7.2: Handler for Development Complete Button ---
+  const handleDevCompleteSession = async () => {
+    if (!isActive) {
+      console.warn("[Dev Button] Pressed when timer wasn't active.");
+      return;
+    }
+
+    const durationCompleted = selectedDuration; // Use the duration set for the active session
+    const modeCompletedIn = focusMode; // Get the current focus mode
+    const oldLevelBeforeFetch = profile?.level ?? 1; 
+    const oldStreakBeforeFetch = profile?.streak ?? 0;
+    const oldXPBeforeFetch = profile?.xp ?? 0; // Capture old XP
+
+    console.log(`[Dev Button] Simulating session completion. Duration: ${durationCompleted} mins, Mode: ${modeCompletedIn}`);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // Haptic feedback for dev action
+
+    try {
+      console.log(`[Dev Button] Invoking award-xp function...`);
+      const { data: functionData, error } = await supabase.functions.invoke('award-xp', { // Capture data here
+        body: { 
+          sessionDurationMinutes: durationCompleted,
+          focusMode: modeCompletedIn // Pass current focus mode
+        }
+      });
+
+      if (error) {
+        throw error; // Throw to be caught by catch block
+      }
+
+      console.log('[Dev Button] award-xp function succeeded:', functionData);
+      
+      // B8.1: Fetch updated profile AFTER function success
+      const updatedProfileData = await fetchProfile();
+      console.log('[Dev Button] Profile refetched.');
+
+      // B8.1: Process results AFTER profile is refetched
+      const newLevel = updatedProfileData?.level ?? oldLevelBeforeFetch;
+      const newStreak = updatedProfileData?.streak ?? oldStreakBeforeFetch;
+      const currentXP = updatedProfileData?.xp ?? 0;
+      
+      // Ensure functionData exists before accessing its properties
+      const levelChanged = functionData?.levelChanged ?? (newLevel > oldLevelBeforeFetch);
+      const streakChanged = newStreak > oldStreakBeforeFetch; // Recalculate based on updated newStreak
+      const totalXpAwarded = functionData?.xpEarned ?? 0; // Corrected field name
+
+      // Calculate base and bonus XP based on total awarded and mode
+      const wasHardMode = modeCompletedIn === 'hard';
+      const bonusXPEarned = wasHardMode ? Math.floor(totalXpAwarded / 2) : 0;
+      const baseXPEarned = totalXpAwarded - bonusXPEarned;
+
+      // Calculate XP required for next level based on the *new* level
+      const nextLevelDataAfterUpdate = LEVELS.find(l => l.level === newLevel + 1);
+      // Ensure a valid number is passed, defaulting to currentXP if max level
+      const xpRequiredForNextLevelAfterUpdate = nextLevelDataAfterUpdate?.xpRequired ?? currentXP;
+
+      const sessionInfo: PostSessionData = {
+          duration: durationCompleted,
+          xpEarned: totalXpAwarded, // Keep total for potential other uses
+          baseXPEarned: baseXPEarned,
+          bonusXPEarned: bonusXPEarned,
+          wasHardMode: modeCompletedIn === 'hard',
+          oldLevel: oldLevelBeforeFetch,
+          newLevel: newLevel,
+          levelChanged: levelChanged,
+          oldStreak: oldStreakBeforeFetch,
+          newStreak: newStreak,
+          streakChanged: streakChanged,
+          oldXP: oldXPBeforeFetch,
+          currentXP: currentXP,
+          xpRequiredForNextLevel: xpRequiredForNextLevelAfterUpdate,
+      };
+      
+      // --- Removed DEBUG Log --- //
+      
+      console.log('[B8.1] Dev Post Session Info:', sessionInfo);
+      console.log(`[B8.1] Dev Calculated XP: total=${totalXpAwarded}, base=${baseXPEarned}, bonus=${bonusXPEarned}`); // DEBUG
+      setPostSessionInfo(sessionInfo); // Store the data
+
+      // Build modal queue
+      const queue: ModalType[] = ['summary'];
+      if (streakChanged) {
+          queue.push('streak');
+      }
+      if (levelChanged) {
+          queue.push('level');
+      }
+      console.log('[B8.1] Dev Setting Modal Queue:', queue);
+      setModalQueue(queue);
+
+    } catch (error: any) {
+      console.error('[Dev Button] Error invoking award-xp function:', error);
+      Alert.alert('Dev Error', `Failed to award XP: ${error.message}`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+    } finally {
+      // Reset the timer UI regardless of success/failure
+      console.log('[Dev Button] Resetting timer UI.');
+      handleReset(); // Use existing reset logic
+    }
+  };
+
+  // --- B8.5: Modal Queue Processing ---
+  const processNextModal = () => {
+    setModalQueue(prev => {
+        const nextQueue = prev.slice(1);
+        console.log('[B8.5] Advancing modal queue. Next queue:', nextQueue);
+        // If queue becomes empty, clear the session info
+        if (nextQueue.length === 0) { 
+            setPostSessionInfo(null);
+            console.log('[B8.5] Modal queue empty, clearing post session info.');
+        }
+        return nextQueue;
+    }); 
+  };
+
+  // Handler for Summary Modal "Start New" button
+  const handleStartNewFromSummary = () => {
+      // Reset timer immediately (using existing handleReset which sets isActive=false etc.)
+      handleReset(); 
+      // Clear the modal queue completely and reset info
+      setModalQueue([]); 
+      setPostSessionInfo(null);
+      console.log('[B8.5] Start New pressed, resetting timer and clearing modal queue.');
+      // Optional: Auto-select default duration?
+      // setSelectedDuration(25); 
+  };
+
+  // Handler for Summary Modal "View Progress" button
+  const handleViewProgressFromSummary = () => {
+      // Clear the modal queue first
+      setModalQueue([]);
+      setPostSessionInfo(null);
+      // Then show the existing LevelingSystem modal
+      setIsLevelModalVisible(true); 
+      console.log('[B8.5] View Progress pressed, clearing queue and showing LevelingSystem modal.');
+  };
+
   // --- Effect to sync remainingTime with selectedDuration when timer is NOT active --- //
   useEffect(() => {
     if (!isActive) {
@@ -178,38 +345,101 @@ export default function HomeScreen() {
             clearInterval(intervalRef.current!); 
             intervalRef.current = null; // Clear ref immediately
             
-            const durationToAward = completedSessionDuration;
-            console.log(`Timer finished! Duration to award: ${durationToAward} minutes.`);
+            const durationCompleted = completedSessionDuration; // Use the stored duration
+            const modeCompletedIn = focusMode; // Use the current focus mode
+            const oldLevelBeforeFetch = profile?.level ?? 1; 
+            const oldStreakBeforeFetch = profile?.streak ?? 0;
+            const oldXPBeforeFetch = profile?.xp ?? 0; // Capture old XP
+
+            console.log(`Timer finished! Duration: ${durationCompleted} mins, Mode: ${modeCompletedIn}.`);
 
             // B6.6: Call Edge Function if duration is valid
-            if (durationToAward > 0) {
-              const previousLevel = profile?.level;
-              // Get the current focus mode
-              const currentFocusMode = focusMode; 
-              console.log(`[award-xp] Invoking function with duration: ${durationToAward}, mode: ${currentFocusMode}`);
+            if (durationCompleted > 0) {
+              // const previousLevel = profile?.level; // No longer needed here, captured above
+              console.log(`[award-xp] Invoking function with duration: ${durationCompleted}, mode: ${modeCompletedIn}`);
               supabase.functions.invoke('award-xp', {
                 body: { 
-                  sessionDurationMinutes: durationToAward,
-                  focusMode: currentFocusMode // B6.4: Pass focusMode
+                  sessionDurationMinutes: durationCompleted,
+                  focusMode: modeCompletedIn // B6.4: Pass focusMode
                 }
               })
-              .then((result: any) => {
+              .then(async (result: any) => { // Make the success handler async
                 // B6.7: Handle success
-                console.log('Session completed, XP awarded:', result?.data);
-                // Fetch updated profile data
-                return fetchProfile(); // Return promise for chaining
+                if (result.error) {
+                  throw result.error; // Propagate error to catch block
+                }
+                const functionData = result.data;
+                console.log('Session completed, function result:', functionData);
+
+                // B8.1: Fetch updated profile AFTER function success
+                const updatedProfileDataAfterTimer = await fetchProfile();
+                console.log('[Timer] Profile refetched.');
+
+                // B8.1: Process results AFTER profile is refetched
+                const newLevel = updatedProfileDataAfterTimer?.level ?? oldLevelBeforeFetch;
+                const newStreak = updatedProfileDataAfterTimer?.streak ?? oldStreakBeforeFetch;
+                const currentXP = updatedProfileDataAfterTimer?.xp ?? 0;
+                
+                // Ensure functionData exists before accessing its properties
+                const levelChanged = functionData?.levelChanged ?? (newLevel > oldLevelBeforeFetch);
+                const streakChanged = newStreak > oldStreakBeforeFetch; // Recalculate based on updated newStreak
+                const totalXpAwarded = functionData?.xpEarned ?? 0; // Corrected field name
+
+                // Calculate base and bonus XP based on total awarded and mode
+                const wasHardMode = modeCompletedIn === 'hard';
+                const bonusXPEarned = wasHardMode ? Math.floor(totalXpAwarded / 2) : 0;
+                const baseXPEarned = totalXpAwarded - bonusXPEarned;
+
+                // Calculate XP required for next level based on the *new* level
+                const nextLevelDataAfterUpdate = LEVELS.find(l => l.level === newLevel + 1);
+                // Ensure a valid number is passed, defaulting to currentXP if max level
+                const xpRequiredForNextLevelAfterUpdate = nextLevelDataAfterUpdate?.xpRequired ?? currentXP;
+
+                const sessionInfo: PostSessionData = {
+                    duration: durationCompleted,
+                    xpEarned: totalXpAwarded, // Keep total for potential other uses
+                    baseXPEarned: baseXPEarned,
+                    bonusXPEarned: bonusXPEarned,
+                    wasHardMode: modeCompletedIn === 'hard',
+                    oldLevel: oldLevelBeforeFetch,
+                    newLevel: newLevel,
+                    levelChanged: levelChanged,
+                    oldStreak: oldStreakBeforeFetch,
+                    newStreak: newStreak,
+                    streakChanged: streakChanged,
+                    oldXP: oldXPBeforeFetch,
+                    currentXP: currentXP,
+                    xpRequiredForNextLevel: xpRequiredForNextLevelAfterUpdate,
+                };
+                
+                // --- Removed DEBUG Log --- //
+                
+                console.log('[B8.1] Post Session Info:', sessionInfo);
+                console.log(`[B8.1] Timer Calculated XP: total=${totalXpAwarded}, base=${baseXPEarned}, bonus=${bonusXPEarned}`); // DEBUG
+                setPostSessionInfo(sessionInfo); // Store the data
+
+                // Build modal queue
+                const queue: ModalType[] = ['summary'];
+                if (streakChanged) {
+                    queue.push('streak');
+                }
+                if (levelChanged) {
+                    queue.push('level');
+                }
+                console.log('[B8.1] Setting Modal Queue:', queue);
+                setModalQueue(queue);
+
+                // Remove the old Alert - modals will handle this
+                // if (oldLevelBeforeFetch && newLevel && newLevel > oldLevelBeforeFetch) {
+                //     Alert.alert('Level Up!', `Congratulations! You reached level ${newLevel}!`);
+                // }
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
               })
-              .then(() => {
-                  // Check for level up AFTER profile is fetched
-                  const newLevel = profile?.level; 
-                  if (previousLevel && newLevel && newLevel > previousLevel) {
-                      Alert.alert('Level Up!', `Congratulations! You reached level ${newLevel}!`);
-                  }
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              })
+              // Removed the second .then() block as logic moved into the first one
               .catch((error: any) => {
                 // B6.7: Handle failure
-                console.error('Error awarding XP:', error);
+                console.error('Error awarding XP or processing result:', error);
                 Alert.alert('Error', 'Could not save session progress. Please try again later.');
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               })
@@ -479,29 +709,36 @@ export default function HomeScreen() {
     setXpSectionHeight(height);
   };
 
-  return (
-    <ThemedView style={styles.container}>
-      <View style={styles.topBar}>
-        {/* Left: Level Indicator - REMOVED */}
-        {/* <Pressable style={styles.levelContainer} onPress={() => setIsLevelModalVisible(true)}>
-          <Ionicons name="ribbon" size={20} color="#FFD700" />
-          <ThemedText style={styles.levelText}>{loading ? '...' : profile?.level ?? '-'}</ThemedText>
-        </Pressable> */}
+  // --- Render Functions --- //
+  const renderHeader = () => (
+    <View style={styles.topBar}>
+      {/* Left: Level Indicator - REMOVED */}
+      {/* <Pressable style={styles.levelContainer} onPress={() => setIsLevelModalVisible(true)}>
+        <Ionicons name="ribbon" size={20} color="#FFD700" />
+        <ThemedText style={styles.levelText}>{loading ? '...' : profile?.level ?? '-'}</ThemedText>
+      </Pressable> */}
 
-        {/* Right: Streak Indicator - Conditionally rendered */}
-        {isActive ? (
-          <View style={{ height: 24 }} /> // Placeholder height
-        ) : (
-          <Pressable onPress={() => setIsStreakModalVisible(true)} style={styles.streakContainer}>
-            <Ionicons name="flash" size={20} color="#FFD700" />
-            <ThemedText style={styles.streakText}>{loading ? '...' : profile?.streak ?? '-'}</ThemedText>
-          </Pressable>
-        )}
-        {/* Spacer */}
-        <View style={{ flex: 1 }} /> 
-        {/* Settings Icon */}
-        <MaterialCommunityIcons name="cog" size={20} color="white" />
-      </View>
+      {/* Right: Streak Indicator - Conditionally rendered */}
+      {isActive ? (
+        <View style={{ height: 24 }} /> // Placeholder height
+      ) : (
+        <Pressable onPress={() => setIsStreakModalVisible(true)} style={styles.streakContainer}>
+          <Ionicons name="flash" size={20} color="#FFD700" />
+          <ThemedText style={styles.streakText}>{loading ? '...' : profile?.streak ?? '-'}</ThemedText>
+        </Pressable>
+      )}
+      {/* Spacer */}
+      <View style={{ flex: 1 }} /> 
+      {/* Settings Icon */}
+      <MaterialCommunityIcons name="cog" size={20} color="white" />
+    </View>
+  );
+
+  // --- Main Return --- //
+  return (
+    <View style={styles.container}>
+      {/* Render Header - Call the function */} 
+      {renderHeader()}
 
       {/* XP Section with exact height matching */}
       {isActive ? (
@@ -710,8 +947,6 @@ export default function HomeScreen() {
 
       </View> // End of centerContent
 
-      {/* Bottom Controls Section REMOVED */}
-
       {/* Modal for Custom Duration Picker */}
       <Modal
         animationType="fade"
@@ -785,7 +1020,43 @@ export default function HomeScreen() {
           xpForNextLevel={LEVELS.find(l => l.level === currentLevel + 1)?.xpRequired ?? currentXP}
         />
       </Modal>
-    </ThemedView>
+
+      {/* --- B8.5: Post-Session Modals --- */}
+      {postSessionInfo && (
+        <>
+          <SessionSummaryModal
+            isVisible={modalQueue[0] === 'summary'}
+            onClose={processNextModal} // Advance queue
+            onStartNew={handleStartNewFromSummary} // Fix linter error
+            onViewProgress={handleViewProgressFromSummary} // Fix linter error
+            sessionInfo={postSessionInfo}
+          />
+          <StreakIncreaseModal
+            isVisible={modalQueue[0] === 'streak'}
+            onClose={processNextModal} // Advance queue
+            oldStreak={postSessionInfo.oldStreak}
+            newStreak={postSessionInfo.newStreak}
+          />
+          <LevelUpModal
+            isVisible={modalQueue[0] === 'level'}
+            onClose={processNextModal} // Advance queue (ends sequence)
+            oldLevel={postSessionInfo.oldLevel}
+            newLevel={postSessionInfo.newLevel}
+            newLevelTitle={LEVELS.find(l => l.level === postSessionInfo.newLevel)?.title}
+          />
+        </>
+      )}
+
+      {/* Conditional Development Button */}
+      {__DEV__ && isActive && (
+        <Pressable
+          style={styles.devCompleteButton}
+          onPress={handleDevCompleteSession} // Use the new handler
+        >
+          <Ionicons name="bug-outline" size={18} color="rgba(255, 255, 255, 0.6)" />
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -794,7 +1065,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Platform.OS === 'android' ? 40 : 60,
     paddingHorizontal: 16,
-    backgroundColor: '#111111', // Reverted: Added solid background color back
+    backgroundColor: '#111111', 
+    position: 'relative', // Keep for absolute positioning
   },
   topBar: {
     height: 60,
@@ -814,36 +1086,28 @@ const styles = StyleSheet.create({
     fontFamily: 'ChakraPetch-SemiBold',
   },
   centerContent: {
-    // Remove flex: 1 and justifyContent - Task 26
-    // flex: 1,
-    // justifyContent: 'flex-start',
     alignItems: 'center',
     paddingBottom: 20,
-    // Remove paddingTop - We'll use marginTop on timer group
-    // paddingTop: 20,
   },
   controlsGroup: {
     alignItems: 'center',
     width: '90%',
-    // Add margin top to space it from timer section
-    marginTop: 15, // Reduced further from 20
+    marginTop: 15,
   },
   timerCircle: {
-    // width: CIRCLE_SIZE, // Applied inline
-    // height: CIRCLE_SIZE, // Applied inline
-    borderRadius: CIRCLE_SIZE / 2, // Use constant from module scope
+    borderRadius: CIRCLE_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   timerText: {
-    fontSize: 30, // Changed size to 30
+    fontSize: 30,
     color: '#FFFFFF',
     fontFamily: 'ChakraPetch-SemiBold',
     fontWeight: '600',
     pointerEvents: 'none',
   },
-  modeText: { // Style remains but component is removed
+  modeText: {
     fontSize: 18,
     color: '#34C759',
     fontWeight: '600',
@@ -898,14 +1162,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Medium',
   },
-  // New style for selected Hard mode text
   controlButtonSelectedHardModeText: {
     color: '#FF3B30', 
     fontSize: 14,
     fontFamily: 'Inter-Medium',
   },
   modeIcon: {
-    // Ensure icons have contrast - using white/green directly in component
   },
   xpSectionContainer: {
     backgroundColor: '#141414',
@@ -963,25 +1225,20 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    // No direct styling needed here, BlurView handles it
   },
   modalPressableArea: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)', // Add darkening layer
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   modalContentContainer: {
-     // Styles for positioning the picker within the pressable area
-     // Ensure it allows the picker's own container to define size
   },
   tooltipContainer: {
     height: 30,
     marginTop: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    // Ensure it doesn't take space when invisible
-    // opacity: 0, // Set initial opacity via Animated.Value
   },
   hardModeTooltip: {
     fontSize: 12,
@@ -990,52 +1247,40 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   resetButtonContainer: {
-    // Remove marginTop maybe? Spacing handled by buttonArea
-    // marginTop: 20,
-    // Add padding if needed for touch target
-    padding: 10, // Example
+    padding: 10,
   },
-  // Task 27: Add buttonArea style
   buttonArea: {
-    flexDirection: 'column', // Changed from row to column
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center', // Center button(s) horizontally
-    marginTop: 30, // Space below timer group
-    minHeight: 60, // Ensure area has consistent height even if buttons change
-    width: '100%', // Take full width
-    gap: 20, // Space between buttons vertically now
+    justifyContent: 'center',
+    marginTop: 30,
+    minHeight: 60,
+    width: '100%',
+    gap: 20,
   },
-  // Task 27: Add mainActionButton style (example)
   mainActionButton: {
-    // Style for the main play/pause button (Revised - Subtle)
-    // backgroundColor: '#34C759', // Removed background
-    paddingVertical: 10, // Reduced padding
-    paddingHorizontal: 20, // Reduced padding
-    borderRadius: 15, // Less rounded corners
-    // minWidth: 150, // Removed minWidth
-    borderWidth: 2, // Increased border thickness
-    borderColor: '#333333', // Changed to match timerCircle border
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#333333',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Task 27: Add style for button content
   mainActionButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10, // Space between icon and text
+    gap: 10,
   },
-  // Task 27: Add style for button text
   mainActionButtonText: {
     color: 'white',
     fontSize: 18,
     fontFamily: 'ChakraPetch-SemiBold',
     textTransform: 'uppercase',
   },
-  // Task 21 (TwentySecond Rev): Style for grouping timer circle/text
   timerDisplayGroup: {
     alignItems: 'center',
-    // Add fixed marginTop - Task 26
-    marginTop: 50, // Adjust as needed
+    marginTop: 50,
   },
   startButtonIconContainer: {
     padding: 12,
@@ -1044,33 +1289,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // New style for App State Tooltip Container
   appStateTooltipContainer: {
     position: 'absolute',
-    bottom: 30, // Position near the bottom
-    left: 16,   // Match container horizontal padding
-    right: 16,  // Match container horizontal padding
-    alignItems: 'center', // Center the text horizontally
-    paddingVertical: 5, // Optional: Add some vertical padding
+    bottom: 30,
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+    paddingVertical: 5,
   },
-  // New style for App State Tooltip Text (matches hardModeTooltip)
   appStateTooltipText: {
     fontSize: 12,
     color: '#8e8e93',
     fontFamily: 'Inter-Medium',
     textAlign: 'center',
   },
-  // Task 25.7: Style for positioning text over SVG
   timerTextContainer: {
     position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
-    // Ensure it doesn't block touch events if it covers the whole circle
     pointerEvents: 'none', 
   },
-  // Style for the MAX level indicator on the main screen
   maxLevelText: {
-    color: '#34C759', // Green color
+    color: '#34C759',
   },
   levelContainer: {
     flexDirection: 'row',
@@ -1081,5 +1321,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontFamily: 'ChakraPetch-SemiBold',
+  },
+  devCompleteButton: {
+    position: 'absolute',
+    bottom: 20, // Adjusted position slightly
+    right: 20,
+    backgroundColor: 'rgba(50, 50, 50, 0.7)', // Darker background
+    width: 36, // Make it small and square
+    height: 36,
+    borderRadius: 18, // Make it circular
+    alignItems: 'center', // Center icon horizontally
+    justifyContent: 'center', // Center icon vertically
+    zIndex: 10,
   },
 });
