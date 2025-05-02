@@ -173,6 +173,12 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 24,
     padding: 24,
+    backgroundColor: '#111111',
+    shadowColor: '#AAAAAA',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   header: {
     alignItems: 'center',
