@@ -645,7 +645,8 @@ export default function HomeScreen() {
 
   // Task 16: Handle Start/Pause/Resume (Revised for Mode)
   const handleStartPauseResume = () => {
-    // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Haptics can be triggered once if any action is taken
+    let hapticTriggered = false;
 
     if (!isActive) {
       // Start (Applies to both modes)
@@ -655,6 +656,7 @@ export default function HomeScreen() {
       }
       if (isVibrationEnabled) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on start
+        hapticTriggered = true;
       }
       setCompletedSessionDuration(selectedDuration); // B6.4: Store duration
       // Ensure remainingTime is correctly set based on stored duration before starting
@@ -662,15 +664,26 @@ export default function HomeScreen() {
       setIsActive(true);
       setIsPaused(false); 
       console.log(`Timer started for ${selectedDuration} minutes.`);
-    } else if (!isPaused && focusMode === 'easy') {
-      // Pause (Easy Mode Only)
-      if (isVibrationEnabled) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic on pause/resume
-      }
-      setIsPaused(!isPaused);
-      console.log(isPaused ? "Timer resumed." : "Timer paused.");
+    } else { // Timer is Active
+        if (focusMode === 'easy') { // Only Easy mode allows pause/resume
+            if (!isPaused) {
+                // --- Pause Logic ---
+                if (isVibrationEnabled && !hapticTriggered) { 
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); 
+                }
+                setIsPaused(true);
+                console.log("Timer paused.");
+            } else {
+                // --- Resume Logic ---
+                if (isVibrationEnabled && !hapticTriggered) { 
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); 
+                }
+                setIsPaused(false);
+                console.log("Timer resumed.");
+            }
+        } 
+        // If Hard Mode and active, button does nothing, so no haptic/state change
     }
-    // In hard mode, pressing the button while active does nothing
   };
 
   // Task 17: Handle Reset/Cancel - MOVED UP
@@ -778,7 +791,11 @@ export default function HomeScreen() {
       <View style={{ flex: 1 }} /> 
       {/* Settings Icon */}
       <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)} style={styles.settingsIcon} disabled={isActive}>
-        <Ionicons name="settings-outline" size={24} color={isActive ? 'transparent' : Colors.dark.icon} />
+        <MaterialCommunityIcons 
+          name="cog"
+          size={24} 
+          color={isActive ? 'transparent' : Colors.dark.icon} 
+        />
       </TouchableOpacity>
     </View>
   );
