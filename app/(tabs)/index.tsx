@@ -604,20 +604,16 @@ export default function HomeScreen() {
     const subscription = AppState.addEventListener('change', nextAppState => {
       // Handle app going to background or becoming inactive
       if (nextAppState.match(/inactive|background/) && isActive) {
-        if (focusMode === 'hard') {
-          // Hard Mode: Cancel the session immediately
-          console.log("App backgrounded in Hard Mode, cancelling session.");
-          handleReset(); // Call the reset function
+        // --- Removed focusMode check --- 
+        // Default behavior: Pause the timer only if it wasn't already manually paused
+        if (!isPaused) {
+          setIsPaused(true);
+          appStatePausedRef.current = true; // Mark pause as due to app state
+          console.log("App backgrounded, timer paused."); // Generic log message
         } else {
-          // Easy Mode: Pause the timer only if it wasn't already manually paused
-          if (!isPaused) {
-            setIsPaused(true);
-            appStatePausedRef.current = true; // Mark pause as due to app state
-            console.log("App backgrounded in Easy Mode, timer paused.");
-          } else {
-            console.log("App backgrounded in Easy Mode, timer was already paused.");
-          }
+          console.log("App backgrounded, timer was already paused.");
         }
+        // --- End of background handling --- 
       }
       // Handle app returning to foreground
       else if (nextAppState === 'active') {
@@ -625,10 +621,9 @@ export default function HomeScreen() {
           // Only resume if timer is active and was paused *by the app state change*
           setIsPaused(false);
           appStatePausedRef.current = false; // Reset the flag
-          console.log("App foregrounded in Easy Mode, timer resumed.");
+          console.log("App foregrounded, timer resumed."); // Generic log message
         } else if (appStatePausedRef.current) {
-          // If the timer became inactive while backgrounded (e.g., hard mode reset),
-          // still clear the flag.
+          // If the timer became inactive while backgrounded, clear the flag
           appStatePausedRef.current = false;
           console.log("App foregrounded, clearing background pause flag.");
         }
@@ -639,7 +634,8 @@ export default function HomeScreen() {
     return () => {
       subscription.remove();
     };
-  }, [isActive, isPaused, focusMode, handleReset]); // Add focusMode and handleReset to dependency array
+    // Remove focusMode and handleReset from dependencies
+  }, [isActive, isPaused]);
 
   // --- Event Handlers --- // 
 
@@ -799,6 +795,14 @@ export default function HomeScreen() {
       </TouchableOpacity>
     </View>
   );
+
+  // --- Determine App State Tooltip Text --- //
+  let appStateTooltip: string | null = null;
+  if (isActive) {
+    appStateTooltip = focusMode === 'hard'
+      ? "Pausing disabled. Complete the session for 2XP."
+      : "Timer will pause if you leave the app.";
+  }
 
   // --- Main Return --- //
   return (
@@ -1043,13 +1047,10 @@ export default function HomeScreen() {
       </Modal>
 
       {/* App State Tooltip - Appears only when timer is active */}
-      {isActive && (
+      {appStateTooltip !== null && (
         <View style={styles.appStateTooltipContainer}>
           <Text style={styles.appStateTooltipText}>
-            {focusMode === 'hard' 
-              ? "Closing the app will cancel the session and lose progress."
-              : "Timer will pause if you leave the app."
-            }
+            {appStateTooltip}
           </Text>
         </View>
       )}

@@ -66,7 +66,7 @@ The MVP focuses purely on creating an emotional feedback loop: start a focus ses
     - If app is backgrounded, the timer pauses automatically and resumes upon return.
   - **Hard Mode:**
     - Session **cannot be paused**.
-    - If app is backgrounded, the session is **cancelled immediately** (no XP earned for that session).
+    - If app is backgrounded, the timer pauses automatically and resumes upon return (same as Easy Mode).
     - *Future Goal:* Successful completion may offer bonus XP (e.g., 2XP).
 - **If manually canceled** (using the Cancel button):
   - *PRD Goal (Not Yet Implemented):* XP should be awarded **proportionally** based on completed minutes.
@@ -163,7 +163,7 @@ After session ends (completed or canceled):
   - Sessions, XP, Streaks, Levels saved to backend.
   - *PRD Goal (Not Yet Implemented):* Handle edge cases (e.g., user force closes app mid-session, award proportional XP).
 - **Timer reliability:**
-  - *Current Implementation:* Timer pauses (Easy Mode) or resets (Hard Mode) if app goes to background. Screen kept awake via `expo-keep-awake` while active.
+  - *Current Implementation:* Timer pauses if app goes to background (in both Easy and Hard Modes). Screen kept awake via `expo-keep-awake` while active.
   - *PRD Goal (Not Yet Implemented):* Award proportional XP even if session is interrupted by backgrounding/exit.
 - **Performance:**
   - App must feel lightweight, fast, and reliable on common mobile devices. *(Ongoing Goal)*
@@ -197,7 +197,7 @@ After session ends (completed or canceled):
 | Visual Level Display | Implemented |
 | Visual Streak Display | Implemented |
 | Screen Keep-Awake | Implemented |
-| Mode-Specific Background Handling (Pause/Reset) | Implemented |
+| Background Handling (Pause) | Implemented |
 | Session Summary Screen | Future | 
 | Login/Signup | Future |
 | Basic Settings (sound/vibration toggles) | Future |
