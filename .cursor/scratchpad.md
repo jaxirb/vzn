@@ -820,3 +820,100 @@ As the app matures and prepares for broader use (including potential App Store s
 
 ### Lessons
 *   Supabase Edge Function secret names cannot start with the reserved `SUPABASE_` prefix.
+*   Secrets required by Edge Functions (like `SUPABASE_SERVICE_ROLE_KEY`) must be provided via Environment Variables set in the Supabase Dashboard (Project Settings -> Functions) and accessed using `Deno.env.get()`.
+*   Persistent local linter errors for Deno/remote imports in Edge Functions can often be ignored initially if the code structure is correct, prioritizing deployment to the actual runtime environment for testing.
+*   Supabase Edge Function deployment via the CLI requires Docker Desktop to be installed and running.
+*   Complex components might require manual cleanup if automated edits introduce persistent linter errors, especially with styles.
+*   Linter errors referencing styles often require removing the *usage* in JSX, not just the definition in `StyleSheet.create`.
+*   When calling backend functions from the frontend, remember to handle both success (refresh local state/context) and error cases (user feedback).
+*   Some components might accept a `style` prop for layout even if not explicitly typed. Use `// @ts-ignore` as a workaround if visual testing confirms it works, but the linter flags it. **(Update: The proper fix is to add `style?: ViewStyle` to the component's Props type).**
+*   Ensure `await fetchProfile()` actually returns the updated data and the calling code uses the *returned* value, not the potentially stale state from `useContext`, especially after async operations.
+*   Streak logic requires careful handling of timestamps (UTC comparison) and only updating `last_session_timestamp` on *qualifying* sessions (>= 25 min) to avoid blocking subsequent streak increments within the same day.
+
+---
+
+## 🧪 New Request: Test Plan for TestFlight Beta
+
+### Background and Motivation
+
+The app build has been submitted to TestFlight. Before inviting external beta testers, a structured test plan is needed to guide internal testing and ensure core functionality is working as expected on a real device. This plan outlines key areas and specific scenarios to verify.
+
+### Test Plan Outline
+
+**Instructions for Testers:** Please go through each test case. Mark if it Passed (P) or Failed (F). If Failed, provide a brief description of the issue (what happened vs. what was expected) and, if possible, steps to reproduce it. Screenshots/recordings are very helpful for failed tests.
+
+**Environment:** TestFlight Build (Version: 1.0.0, Build: 2 - *Confirm actual build number when inviting*)
+
+**I. Installation & Initial Launch**
+    *   [P] **T1.1:** Receive TestFlight invite email.
+    *   [P] **T1.2:** Successfully install the Vzn app via TestFlight app.
+    *   [F] **T1.3:** Launch the app for the first time. Verify splash screen appears and transitions to the expected initial screen (likely Login/Auth).
+        - splash screen needs to be changed to dark mode
+        - splash screen doesnt cover auth screen when loading back in after the user has already logged in before
+
+**II. Authentication**
+    *   [P] **T2.1:** Navigate the authentication flow (assuming OTP for now). Successfully receive OTP and log in/sign up.
+    *   [P] **T2.2:** Close and reopen the app. Verify the user remains logged in (session persists).
+    *   [P] **T2.3:** Navigate to Settings -> Logout. Verify logout is successful and user is returned to the Login/Auth screen.
+    *   [P] **T2.4:** Log back in successfully after logging out.
+
+**III. Core Timer Functionality**
+    *   [P] **T3.1 (Presets):** Select "25m" duration. Verify display updates. Start timer (Easy Mode). Verify timer counts down MM:SS. Verify progress circle animates.
+    *   [P] **T3.2 (Custom):** Tap "+". Select a custom duration (e.g., 7 minutes) using the picker. Verify display updates. Start timer (Easy Mode). Verify countdown.
+    - custom duration background is see through, needs to make it solid
+    *   [F] **T3.3 (Mode - Easy):** Select "Easy Mode". Start timer. Verify Pause button appears. Tap Pause. Verify timer pauses. Tap Resume. Verify timer resumes.
+    - Pause button works, Resume button does not
+    *   [P] **T3.4 (Mode - Hard):** Select "Hard Mode". Start timer. Verify Pause button is *not* present. Verify Cancel button is present.
+    *   [P] **T3.5 (Cancel):** Start timer (Easy or Hard). Tap Cancel button. Verify timer stops and UI resets to inactive state.
+    *   [P] **T3.6 (Completion - Short):** Set short duration (e.g., 1 min). Start timer. Let it run to 00:00. Verify timer stops, UI resets, and post-session modal(s) appear.
+    *   [ ] **T3.7 (Completion - Qualifying):** Set duration >= 25 min (use Dev button if needed). Complete session. Verify post-session modal(s) appear.
+    *   [ ] **T3.8 (Keep Awake):** Start timer (e.g., 5 mins). Leave the phone untouched. Verify the screen does *not* lock automatically while the timer is active (`isActive=true`). Cancel timer. Verify screen *does* lock after normal device timeout.
+    *   [P] **T3.9 (Background - Easy):** Start timer (Easy Mode). Press Home button to background app. Wait 30 seconds. Reopen app. Verify timer is paused (or resumed from paused state if it was already paused).
+    *   [P] **T3.10 (Background - Hard):** Start timer (Hard Mode). Press Home button to background app. Wait 10 seconds. Reopen app. Verify timer has been cancelled/reset.
+    *   [X/P] **T3.11 (Vibration Toggle - On):** Ensure Vibration is ON in Settings. Complete a session. Verify device vibrates.
+    *   [X/F] **T3.12 (Vibration Toggle - Off):** Ensure Vibration is OFF in Settings. Complete a session. Verify device does *not* vibrate.
+    - vibration still occurs when pressing start
+
+**IV. Gamification Logic & Display**
+    *   [ ] **T4.1 (Initial State):** On first login (or check DB), verify XP, Level, Streaks are at default values (0/1/0/0).
+    *   [P] **T4.2 (XP Award - Easy):** Complete an Easy Mode session (e.g., 25 min). Verify `SessionSummaryModal` shows correct XP earned (e.g., 10 XP). Verify profile data (Top Bar / Level Modal) updates with new total XP.
+    *   [ ] **T4.3 (XP Award - Hard):** Complete a Hard Mode session (e.g., 25 min). Verify `SessionSummaryModal` shows correct **doubled** XP earned (e.g., 20 XP). Verify profile data updates.
+    *   [ ] **T4.4 (Level Up):** Complete sessions until enough XP is earned to level up. Verify `LevelUpModal` appears. Verify `currentLevel` in profile data updates correctly (Top Bar / Level Modal). Verify XP bar in Level modal resets/updates correctly for the new level.
+    *   [F] **T4.5 (Streak Increment):** Complete a qualifying session (>=25m). On the *next day*, complete another qualifying session. Verify `StreakIncreaseModal` appears. Verify `currentStreak` increments. Verify `longestStreak` updates if applicable. (Use Dev button + potentially changing device date carefully for testing).
+    - we need to adjust logic so streak cycle is from 12am - 11:59 pm in the user's local time zone
+    *   [ ] **T4.6 (Streak Reset):** Complete a qualifying session. Wait *more than one full day* (e.g., 2 days later). Complete another qualifying session. Verify `currentStreak` resets to 1.
+    - i want to make sure that the user's streak resets to 0 when they log back in, not reseting to "1" after they complete a session
+    *   [ ] **T4.7 (Streak Maintain):** Complete multiple qualifying sessions on the *same day*. Verify `currentStreak` does *not* increment more than once per day.
+    *   [P] **T4.8 (Modal Data):** Open Streak Modal. Verify `currentStreak` and `longestStreak` match profile. Open Level Modal. Verify `currentLevel`, `totalXP`, and progress bar match profile.
+
+**V. UI & UX**
+    *   [P] **T5.1 (Layout Stability):** Start/Stop/Cancel timer repeatedly. Verify elements in Top Bar, Center Content, and Bottom Controls do *not* jump or shift unexpectedly. Verify hiding/showing elements when timer is active maintains layout.
+    *   [P] **T5.2 (Modal Interactions):** Open and close Settings Modal, Streak Modal, Level Modal. Verify animations are smooth. Verify backdrop press closes modal. Verify 'X' button closes modal.
+    *   [] **T5.3 (Post-Session Flow):** Complete a session triggering all 3 modals (Summary, Streak, Level - may need specific setup). Verify they appear sequentially and can be dismissed correctly.
+    *   [P] **T5.4 (Button States):** Verify duration preset buttons highlight correctly when selected. Verify "+" button doesn't get highlighted. Verify Mode buttons highlight correctly. Verify correct icon (Play/Pause) shows on main timer button.
+    *   [P] **T5.5 (Dark Theme):** Check all screens and modals. Verify consistent dark theme styling, text visibility, and element contrast.
+    *   [P] **T5.6 (Responsiveness - Basic):** If possible, test on different iOS device sizes (e.g., iPhone SE vs. iPhone Pro Max). Verify layout adapts reasonably well (no major overlaps or cut-off elements).
+
+**VI. Settings & Compliance**
+    *   [P] **T6.1 (Settings Access):** Tap gear icon. Verify Settings modal opens.
+    *   [P] **T6.2 (Toggles):** Toggle Notifications, Sounds, Vibrations switches. Verify state persists after closing/reopening modal (functionality tested elsewhere).
+    *   [P] **T6.3 (Logout):** Tested in Auth section (T2.3).
+    *   [P] **T6.4 (Compliance Links):** Tap Privacy Policy. Verify correct screen/content opens. Tap Terms of Service. Verify correct screen/content opens.
+    *   [P] **T6.5 (Support Link):** Tap Help & Support. Verify Mail app opens (or prompts) with a pre-filled email to the correct address. (Requires mail configured on device).
+
+**VII. Edge Cases & Other**
+    *   [P] **T7.1 (Zero Duration):** Ensure "0m" is selected (might happen by default). Tap Start Focus. Verify nothing happens OR a user-friendly message appears (e.g., "Please select a duration").
+    *   [F] **T7.2 (Rapid Taps):** Rapidly tap Start/Pause/Cancel buttons. Verify app remains stable and doesn't enter a weird state. Rapidly tap duration/mode buttons. Verify state updates correctly.
+    - Failed due to resume button not working
+    *   [ ] **T7.3 (App Interrupt):** Start timer. Receive a phone call. Answer call. End call. Return to app. Verify timer state is correct based on Easy/Hard mode background rules.
+    *   [ ] **T7.4 (Offline):** Disconnect from Wi-Fi/Cellular. Try starting/completing a session. Does the app crash? Does it handle the lack of connection gracefully when trying to call the backend function (e.g., show an error message)? Does profile data update when connection returns? (Focus on stability, full offline support is likely future scope).
+
+---
+*End of Test Plan Section*
+
+</rewritten_file>
+
+
+
+### Lessons
+*   Supabase Edge Function secret names cannot start with the reserved `SUPABASE_` prefix.
