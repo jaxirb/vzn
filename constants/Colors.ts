@@ -16,11 +16,20 @@ export const Colors = {
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
+    text: '#EAEAEA',
+    background: '#000000',
+    tint: '#FFFFFF',
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    tabIconSelected: '#FFFFFF',
+    textOff: '#A0A0A0',
+    textMuted: '#6E6E73',
+    inputBackground: '#1C1C1E',
+    inputText: '#EAEAEA',
+    inputBorder: '#3A3A3C',
+    tintPressed: '#C7C7CC',
+    buttonDisabled: '#2C2C2E',
+    textSuccess: '#34C759', // iOS system green
+    placeholderText: '#8E8E93', // Standard iOS dark mode placeholder grey
   },
 };

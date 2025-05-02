@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, Button, Alert, View } from 'react-native';
+import { StyleSheet, TextInput, Button, Alert, View, Pressable, Text, SafeAreaView } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase'; // Import Supabase client
+import { Colors } from '@/constants/Colors'; // Import Colors
 // import { PhoneOtpType } from '@supabase/supabase-js'; // Type not needed for email OTP
 
 export default function VerifyOtpScreen() {
@@ -17,6 +18,10 @@ export default function VerifyOtpScreen() {
       Alert.alert('Error', 'Email parameter is missing.');
       // Optionally navigate back or handle error appropriately
       // router.back(); 
+      return;
+    }
+    if (token.length !== 6) { // Add check for token length before API call
+      Alert.alert('Invalid Code', 'Please enter the 6-digit code.');
       return;
     }
     setLoading(true);
@@ -35,62 +40,128 @@ export default function VerifyOtpScreen() {
     } else {
       // Success! Session should be established.
       // The onAuthStateChange listener in _layout.tsx will handle navigation.
-      Alert.alert('Success!', 'You have been signed in.');
+      // Alert.alert('Success!', 'You have been signed in.'); // Remove success alert
       // No explicit navigation here, rely on root layout listener
-      // router.replace('/(tabs)'); 
     }
     setLoading(false);
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Verify Code</ThemedText>
-      <ThemedText style={styles.subtitle}>
-        Enter the 6-digit code sent to {email || 'your email'}
-      </ThemedText>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          onChangeText={setToken}
-          value={token}
-          placeholder="123456"
-          autoCapitalize="none"
-          keyboardType="number-pad"
-          maxLength={6}
-          placeholderTextColor="#888"
-        />
-      </View>
-      <Button
-        title={loading ? 'Verifying...' : 'Verify Code'}
-        onPress={verifyOtpCode}
-        disabled={loading || token.length !== 6}
-      />
-    </ThemedView>
+    <SafeAreaView style={styles.safeArea}>
+      <ThemedView style={styles.container}>
+        <View style={styles.contentContainer}>
+          <View style={styles.headerContainer}>
+            <ThemedText type="title" style={styles.title}>Verify Code</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Enter the 6-digit code sent to {email || 'your email'}
+            </ThemedText>
+          </View>
+
+          <View style={styles.inputSection}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                onChangeText={setToken}
+                value={token}
+                placeholder="123456"
+                autoCapitalize="none"
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholderTextColor={Colors.dark.textMuted}
+                textContentType="oneTimeCode"
+              />
+            </View>
+            <Pressable
+                style={({ pressed }) => [
+                    styles.button,
+                    (loading || token.length !== 6) && styles.buttonDisabled,
+                ]}
+                onPress={verifyOtpCode}
+                disabled={loading || token.length !== 6}
+                >
+                <Text style={styles.buttonText}>
+                    {loading ? 'Verifying...' : 'Verify Code'}
+                </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Optional: Add a Resend code button/link later? */}
+        {/* Optional: Add legal footer if needed */}
+
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
+  },
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 30,
   },
-  subtitle: {
-    marginBottom: 20,
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  title: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 30,
+    color: Colors.dark.text,
+    marginBottom: 12,
     textAlign: 'center',
   },
+  subtitle: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 17,
+    color: Colors.dark.textOff,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 0,
+  },
+  inputSection: {
+    width: '100%',
+    alignItems: 'center',
+  },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
+    width: '80%',
   },
   input: {
     height: 50,
-    borderColor: 'gray',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    textAlign: 'center', // Center OTP code
-    backgroundColor: '#fff', // Adapt for dark mode if needed
-    color: '#000', // Adapt for dark mode if needed
+    backgroundColor: Colors.dark.inputBackground,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    fontFamily: 'Inter-Medium',
+    color: Colors.dark.inputText,
+    borderWidth: 0,
+    textAlign: 'center',
+    letterSpacing: 5,
+  },
+  button: {
+      backgroundColor: 'transparent',
+      paddingVertical: 14,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      marginTop: 10,
+  },
+  buttonDisabled: {
+      opacity: 0.5,
+  },
+  buttonText: {
+      color: Colors.dark.tint,
+      fontSize: 17,
+      fontFamily: 'Inter-SemiBold',
   },
 }); 

@@ -5,8 +5,8 @@ import { ThemedText } from '@/components/ThemedText';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { Colors } from '@/constants/Colors'; // Assuming dark mode is default/only mode
 
-// Placeholder content - Replace with actual content later
-const PLACEHOLDER_PRIVACY = `
+// Placeholder content - Export for use in modals
+export const PLACEHOLDER_PRIVACY = `
 Privacy Policy for Vzn
 
 Last Updated: [Date - 05/01/25]
@@ -83,7 +83,7 @@ If you have questions or comments about this Privacy Policy, please contact us a
 hi@vzn.one
 `;
 
-const PLACEHOLDER_TERMS = `
+export const PLACEHOLDER_TERMS = `
 Terms of Service for Vzn
 
 Last Updated: [Date - 05/01/25]
