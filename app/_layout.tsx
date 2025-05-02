@@ -3,8 +3,8 @@ import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments, Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState, useRef } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Platform, View } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -19,121 +19,120 @@ import { Colors } from '@/constants/Colors';
 // Prevent the splash screen from auto-hiding.
 SplashScreen.preventAutoHideAsync();
 
-// Custom hook to manage auth state and redirection
+// Custom hook to manage auth state and DECIDE navigation target
 function useProtectedRoute(
-  session: Session | null, 
-  isReady: boolean, 
-  setIsNavigationResolved: (value: boolean) => void 
+  session: Session | null,
+  isReady: boolean,
+  firstRun: React.MutableRefObject<boolean>,
+  setNavigationTarget: (target: string | null) => void,
+  setIsNavigationResolved: (value: boolean) => void
 ) {
   const segments = useSegments();
-  const router = useRouter();
-  const isNavigating = useRef(false); 
-  const firstRun = useRef(true); 
 
   useEffect(() => {
-    console.log(`[Auth Guard] Effect triggered. Session prop: ${!!session}, Ready: ${isReady}`);
-    
-    let resolved = false;
-    const navigationTimeout = setTimeout(() => {
-      isNavigating.current = false;
-    }, 500); 
+    if (!isReady || !firstRun.current) {
+      console.log(`[Auth Guard] Effect skipped: Ready=${isReady}, FirstRun=${firstRun.current}`);
+      return;
+    }
 
-    if (!isReady) {
-      console.log('[Auth Guard] Effect skipped: Layout not ready yet.');
-      resolved = true; 
-    } else {
-      const inAuthGroup = segments[0] === '(auth)';
-      const inOnboardingGroup = segments[0] === 'onboarding';
-      // @ts-ignore - Suppress potentially incorrect linter warning about segments length
-      const isAtRootIndex = segments.length === 0; 
-      console.log(`[Auth Guard] Running checks. Segments: ${segments.join('/')}, InAuth: ${inAuthGroup}, InOnboarding: ${inOnboardingGroup}, IsRoot: ${isAtRootIndex}, Session: ${!!session}`);
+    console.log(`[Auth Guard] Scheduling check for next tick. Session: ${!!session}, Ready: ${isReady}, FirstRun: ${firstRun.current}`);
 
-      const navigateSafely = (target: string) => {
-        if (!isNavigating.current) {
-          console.log(`[Auth Guard] Attempting navigation to ${target}`);
-          isNavigating.current = true; 
-          router.replace(target as Href); 
-        } else {
-          console.log(`[Auth Guard] Navigation to ${target} skipped: Already navigating.`);
-        }
-        resolved = true; 
+    // *** Delay the core logic slightly ***
+    const timerId = setTimeout(() => {
+      console.log('[Auth Guard] Timeout executing...');
+      if (!firstRun.current) { // Check again in case state changed rapidly
+          console.log('[Auth Guard] Aborting timeout execution, first run already completed.')
+          return;
+      }
+
+      const currentSegments = segments; // Capture segments at the time of execution
+      const inAuthGroup = currentSegments[0] === '(auth)';
+      const inOnboardingGroup = currentSegments[0] === 'onboarding';
+      // @ts-ignore - Check for initial empty segments array
+      const isAtRootIndex = currentSegments.length === 0 || currentSegments[0] === '';
+      console.log(`[Auth Guard Timeout] Running checks. Segments: ${currentSegments.join('/') || '(root)'}, InAuth: ${inAuthGroup}, InOnboarding: ${inOnboardingGroup}, IsRoot: ${isAtRootIndex}, Session: ${!!session}`);
+
+      const setTarget = (target: string) => {
+        console.log(`[Auth Guard Timeout] Setting navigation target to ${target}`);
+        setNavigationTarget(target);
       };
 
-      // --- Step 1: Handle No Session --- 
+      // --- Step 1: Handle No Session ---
       if (!session) {
         if (!inAuthGroup) {
-          console.log('[Auth Guard] No session and outside Auth group. Redirecting to /auth.');
-          console.log(`[Auth Guard] Current Navigating Flag BEFORE redirect attempt: ${isNavigating.current}`);
-          navigateSafely('/(auth)');
+          console.log('[Auth Guard Timeout] No session and outside Auth group. Setting target: /(auth).');
+          setTarget('/(auth)');
         } else {
-          console.log('[Auth Guard] No session but already in Auth group. Staying.');
-          resolved = true; 
+          console.log('[Auth Guard Timeout] No session and already in Auth group. Staying. Resolving navigation.');
+          setIsNavigationResolved(true);
+          setNavigationTarget(null);
+          firstRun.current = false;
         }
-      } 
-      // --- Step 2: Handle Existing Session --- 
+      }
+      // --- Step 2: Handle Existing Session ---
       else { // Session exists
-          console.log('[Auth Guard] Session exists. Checking onboarding...');
-          (async () => {
-            try {
-              const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('onboarding_completed')
-                .eq('id', session.user.id)
-                .single();
+        console.log('[Auth Guard Timeout] Session exists. Checking onboarding...');
+        (async () => {
+          try {
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('onboarding_completed')
+              .eq('id', session.user.id)
+              .single();
 
-              if (error && error.code !== 'PGRST116') { 
-                console.error('[Auth Guard] Error fetching profile:', error);
-                resolved = true; 
-                return; 
-              }
-              const onboardingComplete = profile?.onboarding_completed ?? false;
-              console.log(`[Auth Guard] Profile check complete. OnboardingComplete: ${onboardingComplete}`);
+            if (error && error.code !== 'PGRST116') {
+              console.error('[Auth Guard Timeout] Error fetching profile:', error);
+               setIsNavigationResolved(true);
+               setNavigationTarget(null);
+               firstRun.current = false;
+              return;
+            }
 
-              if (!onboardingComplete) {
-                if (!inOnboardingGroup) {
-                   console.log(`[Auth Guard] Redirect Check: Needs Onboarding & NOT in Onboarding Group -> /onboarding`);
-                   navigateSafely('/onboarding'); 
-                } else {
-                   console.log(`[Auth Guard] Redirect Check: Needs Onboarding & ALREADY in Onboarding Group -> Stay`);
-                   resolved = true; 
-                }
+            const onboardingComplete = profile?.onboarding_completed ?? false;
+            console.log(`[Auth Guard Timeout] Profile check complete. OnboardingComplete: ${onboardingComplete}`);
+
+            if (!onboardingComplete) {
+              if (!inOnboardingGroup) {
+                console.log(`[Auth Guard Timeout] Needs Onboarding & NOT in Onboarding Group -> Setting target: /onboarding`);
+                setTarget('/onboarding');
               } else {
-                if (inAuthGroup || inOnboardingGroup || isAtRootIndex) { 
-                   console.log(`[Auth Guard] Redirect Check: Onboarding Complete & in Auth/Onboarding/Root -> /(tabs)`);
-                   navigateSafely('/(tabs)');
-                } else {
-                    console.log(`[Auth Guard] Redirect Check: Onboarding Complete & NOT in Auth/Onboarding/Root -> Stay`);
-                    resolved = true; 
-                }
+                console.log(`[Auth Guard Timeout] Needs Onboarding & ALREADY in Onboarding Group -> Staying. Resolving navigation.`);
+                setIsNavigationResolved(true);
+                setNavigationTarget(null);
+                firstRun.current = false;
               }
-            } catch (e) {
-               console.error('[Auth Guard] Exception during onboarding check:', e);
-               resolved = true; 
-            } finally {
-              if (firstRun.current && resolved) {
-                  console.log('[Auth Guard] First run resolved, calling setIsNavigationResolved.');
-                  setIsNavigationResolved(true);
-                  firstRun.current = false;
+            } else { // Onboarding IS complete
+              if (inAuthGroup || inOnboardingGroup || isAtRootIndex) {
+                console.log(`[Auth Guard Timeout] Onboarding Complete & in Auth/Onboarding/Root -> Setting target: /(tabs)`);
+                setTarget('/(tabs)');
+              } else {
+                console.log(`[Auth Guard Timeout] Onboarding Complete & NOT in Auth/Onboarding/Root -> Staying. Resolving navigation.`);
+                setIsNavigationResolved(true);
+                setNavigationTarget(null);
+                firstRun.current = false;
               }
             }
-          })();
+          } catch (e) {
+            console.error('[Auth Guard Timeout] Exception during onboarding check:', e);
+             setIsNavigationResolved(true);
+             setNavigationTarget(null);
+             firstRun.current = false;
+          }
+        })();
       }
-    }
+    }, 0); // Execute after current stack clears
 
-    // --- Cleanup --- 
-    if (firstRun.current && resolved) {
-        console.log('[Auth Guard] First run resolved (sync path), calling setIsNavigationResolved.');
-        setIsNavigationResolved(true);
-        firstRun.current = false;
-    }
-    return () => clearTimeout(navigationTimeout);
-    
-  }, [session, router, isReady, setIsNavigationResolved]);
+    // Cleanup the timeout if dependencies change or component unmounts before it runs
+    return () => clearTimeout(timerId);
+
+  }, [session, isReady, segments, setNavigationTarget, setIsNavigationResolved]); // Keep dependencies
 }
 
 export default function RootLayout() {
   console.log('RootLayout mounted - Full');
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const firstRun = useRef(true);
   const [loaded, fontError] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     'Inter-Light': require('../assets/fonts/Inter/static/Inter_18pt-Light.ttf'),
@@ -146,7 +145,8 @@ export default function RootLayout() {
   });
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isNavigationResolved, setIsNavigationResolved] = useState(false); // New state
+  const [isNavigationResolved, setIsNavigationResolved] = useState(false);
+  const [navigationTarget, setNavigationTarget] = useState<string | null>(null);
 
   // Handle font loading errors
   useEffect(() => {
@@ -165,10 +165,10 @@ export default function RootLayout() {
   useEffect(() => {
     console.log('Setting up onAuthStateChange listener');
     // Initial check
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => { // Renamed for clarity
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       console.log('Initial session fetch completed:', !!initialSession);
       setSession(initialSession);
-      setAuthLoading(false); 
+      setAuthLoading(false);
     }).catch(error => {
       console.error('Error fetching initial session:', error);
       setAuthLoading(false);
@@ -176,8 +176,12 @@ export default function RootLayout() {
 
     // Subscribe to subsequent changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => { // Renamed for clarity
+      (_event, newSession) => {
         console.log('[onAuthStateChange] Event:', _event, 'New Session:', !!newSession);
+        // Reset navigation resolution process when auth state changes
+        firstRun.current = true;
+        setIsNavigationResolved(false);
+        setNavigationTarget(null);
         setSession(newSession);
       }
     );
@@ -191,47 +195,68 @@ export default function RootLayout() {
   // Check if overall layout is ready (fonts loaded AND auth checked)
   const isLayoutReady = loaded && !authLoading;
 
+  // Pass setters and the firstRun ref to the hook
+  const stableSetNavigationTarget = useCallback(setNavigationTarget, []);
+  useProtectedRoute(session, isLayoutReady, firstRun, stableSetNavigationTarget, setIsNavigationResolved);
+
+  // Effect to Handle Navigation
   useEffect(() => {
-    // Hide splash screen ONLY when layout is ready AND navigation is resolved
-    if (isLayoutReady && isNavigationResolved) { 
-      console.log('Hiding SplashScreen - Layout Ready and Navigation Resolved.');
-      SplashScreen.hideAsync();
-    } else {
-      console.log(`SplashScreen not hidden yet: LayoutReady=${isLayoutReady}, NavResolved=${isNavigationResolved}`);
+    // *** Only navigate if target is set AND layout is ready (implicitly means navigator is mounted) ***
+    if (navigationTarget && isLayoutReady) {
+      console.log(`[Navigation Effect] Attempting to navigate to target: ${navigationTarget}`);
+      router.replace(navigationTarget as Href);
+      // Setting target back to null prevents re-navigation if something else causes a re-render
+      // but might interfere if the guard hook needs to run again after navigation.
+      // Let's keep it null for now and see.
+      // setNavigationTarget(null); // Optional: Reset target after navigation attempt
     }
-  }, [isLayoutReady, isNavigationResolved]); // Depend on both
+  }, [navigationTarget, isLayoutReady, router]); // Depend on target and layout readiness
 
-  // Auth state management and redirection hook - pass the setter
-  useProtectedRoute(session, isLayoutReady, setIsNavigationResolved); 
+  // Hide splash screen ONLY when layout is ready AND navigation is resolved AND no target is set
+  useEffect(() => {
+    let hideTimeoutId: NodeJS.Timeout | null = null;
+    if (isLayoutReady && isNavigationResolved && navigationTarget === null) {
+      console.log('Conditions met to hide splash screen, scheduling hide...');
+      // Delay hiding slightly to allow navigation transition to visually complete
+      hideTimeoutId = setTimeout(() => {
+        console.log('Hiding SplashScreen now (after slight delay).');
+        SplashScreen.hideAsync();
+      }, 300); // Increased delay to 300ms
+    } else {
+      console.log(`SplashScreen not hidden yet: LayoutReady=${isLayoutReady}, NavResolved=${isNavigationResolved}, Target=${navigationTarget}`);
+    }
+    // Cleanup the timeout if conditions change before it executes
+    return () => {
+      if (hideTimeoutId) {
+        clearTimeout(hideTimeoutId);
+      }
+    };
+    // Depend on navigationTarget as well
+  }, [isLayoutReady, isNavigationResolved, navigationTarget]);
 
-  console.log('Checking loading states:', loaded, authLoading, isNavigationResolved);
-  // Render null until BOTH layout is ready AND navigation is resolved
-  if (!isLayoutReady || !isNavigationResolved) { 
-    console.log('Layout or Navigation not ready, returning null (keeps splash visible)');
-    return null; 
-  }
+  console.log('Checking loading states:', loaded, authLoading, isNavigationResolved, 'Target:', navigationTarget);
 
-  console.log('Rendering main Stack navigator');
-  // Wrap the existing content with ProfileProvider
+  // Always render the Stack navigator
+  console.log('Rendering main Stack navigator (always rendered)');
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ProfileProvider> 
+      <ProfileProvider>
       <OnboardingProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="(auth)" /> 
+            <Stack.Screen name="(auth)" />
             <Stack.Screen name="onboarding" />
-            <Stack.Screen 
-              name="compliance" 
-              options={({ route }) => ({ 
+            <Stack.Screen
+              name="compliance"
+              options={({ route }) => ({
                 title: (route.params as { title?: string })?.title ?? 'Info',
                 headerShown: true,
                 headerBackTitle: 'Home',
                 headerStyle: { backgroundColor: Colors.dark.background },
                 headerTintColor: Colors.dark.text,
                 headerTitleStyle: { color: Colors.dark.text },
-              })} 
+              })}
             />
             <Stack.Screen name="+not-found" />
           </Stack>

@@ -866,18 +866,17 @@ The app build has been submitted to TestFlight. Before inviting external beta te
     *   [P] **T3.4 (Mode - Hard):** Select "Hard Mode". Start timer. Verify Pause button is *not* present. Verify Cancel button is present.
     *   [P] **T3.5 (Cancel):** Start timer (Easy or Hard). Tap Cancel button. Verify timer stops and UI resets to inactive state.
     *   [P] **T3.6 (Completion - Short):** Set short duration (e.g., 1 min). Start timer. Let it run to 00:00. Verify timer stops, UI resets, and post-session modal(s) appear.
-    *   [ ] **T3.7 (Completion - Qualifying):** Set duration >= 25 min (use Dev button if needed). Complete session. Verify post-session modal(s) appear.
-    *   [ ] **T3.8 (Keep Awake):** Start timer (e.g., 5 mins). Leave the phone untouched. Verify the screen does *not* lock automatically while the timer is active (`isActive=true`). Cancel timer. Verify screen *does* lock after normal device timeout.
+    *   [P] **T3.7 (Completion - Qualifying):** Set duration >= 25 min (use Dev button if needed). Complete session. Verify post-session modal(s) appear.
+    *   [P] **T3.8 (Keep Awake):** Start timer (e.g., 5 mins). Leave the phone untouched. Verify the screen does *not* lock automatically while the timer is active (`isActive=true`). Cancel timer. Verify screen *does* lock after normal device timeout.
     *   [P] **T3.9 (Background - Easy):** Start timer (Easy Mode). Press Home button to background app. Wait 30 seconds. Reopen app. Verify timer is paused (or resumed from paused state if it was already paused).
     *   [P] **T3.10 (Background - Hard):** Start timer (Hard Mode). Press Home button to background app. Wait 10 seconds. Reopen app. Verify timer has been cancelled/reset.
-    *   [X/P] **T3.11 (Vibration Toggle - On):** Ensure Vibration is ON in Settings. Complete a session. Verify device vibrates.
-    *   [X/F] **T3.12 (Vibration Toggle - Off):** Ensure Vibration is OFF in Settings. Complete a session. Verify device does *not* vibrate.
-    - vibration still occurs when pressing start
+    *   [P] **T3.11 (Vibration Toggle - On):** Ensure Vibration is ON in Settings. Complete a session. Verify device vibrates.
+    *   [P] **T3.12 (Vibration Toggle - Off):** Ensure Vibration is OFF in Settings. Complete a session. Verify device does *not* vibrate.
 
 **IV. Gamification Logic & Display**
-    *   [ ] **T4.1 (Initial State):** On first login (or check DB), verify XP, Level, Streaks are at default values (0/1/0/0).
+    *   [P] **T4.1 (Initial State):** On first login (or check DB), verify XP, Level, Streaks are at default values (0/1/0/0).
     *   [P] **T4.2 (XP Award - Easy):** Complete an Easy Mode session (e.g., 25 min). Verify `SessionSummaryModal` shows correct XP earned (e.g., 10 XP). Verify profile data (Top Bar / Level Modal) updates with new total XP.
-    *   [ ] **T4.3 (XP Award - Hard):** Complete a Hard Mode session (e.g., 25 min). Verify `SessionSummaryModal` shows correct **doubled** XP earned (e.g., 20 XP). Verify profile data updates.
+    *   [P] **T4.3 (XP Award - Hard):** Complete a Hard Mode session (e.g., 25 min). Verify `SessionSummaryModal` shows correct **doubled** XP earned (e.g., 20 XP). Verify profile data updates.
     *   [ ] **T4.4 (Level Up):** Complete sessions until enough XP is earned to level up. Verify `LevelUpModal` appears. Verify `currentLevel` in profile data updates correctly (Top Bar / Level Modal). Verify XP bar in Level modal resets/updates correctly for the new level.
     *   [F] **T4.5 (Streak Increment):** Complete a qualifying session (>=25m). On the *next day*, complete another qualifying session. Verify `StreakIncreaseModal` appears. Verify `currentStreak` increments. Verify `longestStreak` updates if applicable. (Use Dev button + potentially changing device date carefully for testing).
     - we need to adjust logic so streak cycle is from 12am - 11:59 pm in the user's local time zone
@@ -906,7 +905,8 @@ The app build has been submitted to TestFlight. Before inviting external beta te
     *   [F] **T7.2 (Rapid Taps):** Rapidly tap Start/Pause/Cancel buttons. Verify app remains stable and doesn't enter a weird state. Rapidly tap duration/mode buttons. Verify state updates correctly.
     - Failed due to resume button not working
     *   [ ] **T7.3 (App Interrupt):** Start timer. Receive a phone call. Answer call. End call. Return to app. Verify timer state is correct based on Easy/Hard mode background rules.
-    *   [ ] **T7.4 (Offline):** Disconnect from Wi-Fi/Cellular. Try starting/completing a session. Does the app crash? Does it handle the lack of connection gracefully when trying to call the backend function (e.g., show an error message)? Does profile data update when connection returns? (Focus on stability, full offline support is likely future scope).
+    *   [P] **T7.4 (Offline):** Disconnect from Wi-Fi/Cellular. Try starting/completing a session. Does the app crash? Does it handle the lack of connection gracefully when trying to call the backend function (e.g., show an error message)? Does profile data update when connection returns? (Focus on stability, full offline support is likely future scope).
+    - it is stable, throws an error. no need for full offline support at the moment
 
 ---
 *End of Test Plan Section*

@@ -6,12 +6,13 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jacksonirby.vzn",
       "buildNumber": "1",
+      "userInterfaceStyle": "dark",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -36,7 +37,11 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#111111",
+          "dark": {
+            "backgroundColor": "#111111",
+            "image": "./assets/images/splash-icon.png"
+          }
         }
       ],
       [
