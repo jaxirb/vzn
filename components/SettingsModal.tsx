@@ -7,7 +7,7 @@ import { Colors } from '@/constants/Colors';
 import { supabase } from '@/services/supabase'; // M3.1: Import supabase
 import { useRouter } from 'expo-router'; // M4.3: Import useRouter
 import AsyncStorage from '@react-native-async-storage/async-storage'; // M5.1: Import AsyncStorage
-import { useState, useEffect } from 'react'; // M5.2: Import hooks
+import { useState, useEffect, Dispatch, SetStateAction } from 'react'; // M5.2: Import hooks + Dispatch/SetStateAction
 
 // M5.3: Define keys for AsyncStorage
 const SETTINGS_KEYS = {
@@ -22,9 +22,11 @@ const SUPPORT_EMAIL = 'hi@vzn.one';
 type SettingsModalProps = {
   isVisible: boolean;
   onClose: () => void;
+  isVibrationEnabled: boolean;
+  onVibrationToggle: Dispatch<SetStateAction<boolean>>;
 };
 
-export default function SettingsModal({ isVisible, onClose }: SettingsModalProps) {
+export default function SettingsModal({ isVisible, onClose, isVibrationEnabled, onVibrationToggle }: SettingsModalProps) {
   // Force dark mode for this modal
   const colorScheme = 'dark';
   const styles = getStyles(colorScheme);
@@ -33,7 +35,6 @@ export default function SettingsModal({ isVisible, onClose }: SettingsModalProps
   // M5.2: Add state for toggles
   const [notificationsEnabled, setNotificationsEnabled] = useState(true); // Default to true
   const [soundEnabled, setSoundEnabled] = useState(true);             // Default to true
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);     // Default to true
 
   // M3.2 & M3.3: Logout Handler
   const handleLogout = async () => {
@@ -67,12 +68,10 @@ export default function SettingsModal({ isVisible, onClose }: SettingsModalProps
       try {
         const notifications = await AsyncStorage.getItem(SETTINGS_KEYS.NOTIFICATIONS);
         const sounds = await AsyncStorage.getItem(SETTINGS_KEYS.SOUNDS);
-        const vibrations = await AsyncStorage.getItem(SETTINGS_KEYS.VIBRATIONS);
 
         setNotificationsEnabled(notifications !== null ? JSON.parse(notifications) : true);
         setSoundEnabled(sounds !== null ? JSON.parse(sounds) : true);
-        setVibrationEnabled(vibrations !== null ? JSON.parse(vibrations) : true);
-        console.log('Settings loaded from AsyncStorage');
+        console.log('Settings loaded from AsyncStorage (excluding vibration, handled by parent)');
       } catch (e) {
         console.error('Failed to load settings.', e);
       }
@@ -153,11 +152,11 @@ export default function SettingsModal({ isVisible, onClose }: SettingsModalProps
                 trackColor={{ false: Colors.dark.tabIconDefault, true: Colors.dark.text }}
                 thumbColor={Platform.OS === 'ios' ? Colors.dark.background : Colors.dark.text}
                 ios_backgroundColor={Colors.dark.tabIconDefault}
-                onValueChange={(newValue) => {
-                  setVibrationEnabled(newValue);
-                  saveSetting(SETTINGS_KEYS.VIBRATIONS, newValue);
+                onValueChange={async (newValue) => {
+                  onVibrationToggle(newValue);
+                  await saveSetting(SETTINGS_KEYS.VIBRATIONS, newValue);
                 }}
-                value={vibrationEnabled}
+                value={isVibrationEnabled}
               />
             </View>
 

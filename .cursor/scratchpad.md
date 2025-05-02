@@ -565,32 +565,44 @@ The core Vzn experience relies on a motivating feedback loop driven by XP, level
         *   B3.5: (TDD) **Update tests** for the Edge Function to cover Easy vs. Hard mode XP calculation scenarios.
     *   **Success Criteria:** The deployed `award-xp` function correctly calculates XP (doubled if mode is 'hard' in the request body), updates the profile, and returns success.
 
-4.  **Task B4: Backend Logic - Update Streak Info (Modify Edge Function/Client Logic)**
-    *   **Status:** **Partially Complete** - Backend function modified. Client-side check deferred.
-    *   **Goal:** Update the user's streak information (`current_streak`, `longest_streak`, `last_session_timestamp`) after a qualifying session. Implement the streak check logic.
+4.  **Task B4: Backend Logic - Update Streak Info (Modify Edge Function/Client Logic) (Revised for Local Time Zone)**
+    *   **Status:** **Partially Complete** - Backend function modified (UTC logic). Client-side check implemented (UTC logic). -> **Needs Revision**
+    *   **Goal:** Update the user's streak information (`current_streak`, `longest_streak`, `last_session_timestamp`) after a qualifying session, **basing the daily check on the user's local time zone (12:00 AM - 11:59 PM)**. Implement the local-time streak check logic on both backend (for increment) and client (for reset on load).
     *   **Sub-Tasks:**
-        *   B4.1: **Modify `award-xp` Edge Function:**
-            *   After successfully updating XP/Level, check if `sessionDurationMinutes >= 25`.
-            *   If yes, update the `last_session_timestamp` in the user's `profiles` row to `now()`.
-            *   *(Streak calculation itself will happen client-side on load for now)*.
-        *   B4.2: **Implement Client-Side Streak Check (e.g., in App Load Logic/Context):**
-            *   On app load/user login, fetch the user's profile (`current_streak`, `longest_streak`, `last_session_timestamp`).
-            *   Get the current date and the date part of `last_session_timestamp`.
-            *   Compare dates:
-                *   If `last_session_timestamp` is null or represents a date before "yesterday", reset `current_streak` to 0 in the local state/context (and potentially update DB, although update can wait until next successful session).
-                *   If `last_session_timestamp` represents "today" or "yesterday", the streak continues (no change needed immediately).
-            *   *(This logic avoids needing a scheduled function for MVP)*.
-        *   B4.3: **Modify `award-xp` Edge Function (Streak Increment):**
-            *   When updating `last_session_timestamp` for a qualifying session (>=25min):
-                *   Fetch the profile again (or use previously fetched data carefully).
-                *   Compare `now()` date with `last_session_timestamp` date *before* updating it.
-                *   If the *old* `last_session_timestamp` was from "yesterday", increment `current_streak`.
-                *   If the *old* `last_session_timestamp` was from *before* "yesterday", set `current_streak` to 1.
-                *   If the *old* `last_session_timestamp` was from "today", `current_streak` remains unchanged.
-                *   Update `longest_streak` if `current_streak` exceeds it.
-                *   Include `current_streak` and `longest_streak` updates in the DB update call along with `last_session_timestamp`.
-        *   B4.4: (TDD) Write tests for the client-side check logic and update Edge Function tests to cover streak increments/resets.
-    *   **Success Criteria:** Completing a session >= 25min updates `last_session_timestamp`. The Edge function correctly increments/resets `current_streak` and updates `longest_streak` based on the timing of consecutive daily sessions. Client-side logic correctly interprets the streak status on load.
+        *   B4.1: **(No Change)** Modify `award-xp` Edge Function: After successfully updating XP/Level, check if `sessionDurationMinutes >= 25`. If yes, update the `last_session_timestamp` in the user's `profiles` row to `now()`.
+        *   B4.2: **(Revised)** Implement **Client-Side** Streak Check (**Local Time** Reset on Load):
+            *   **Action:** In the app load logic (likely `ProfileContext` or `_layout.tsx` where profile is initially fetched), get the user's profile (`last_session_timestamp`, `current_streak`). Get the current *local* date using the device's time zone. Convert the fetched `last_session_timestamp` (which is UTC) to the corresponding *local* date using the device's time zone. Compare the *local dates*. If the `last_session_timestamp`'s local date is before "yesterday" (local time), reset `current_streak` to 0 in the local state/context (no immediate DB update needed here, the backend will handle the proper reset/increment on the *next* qualifying session).
+            *   **Verification:** App correctly identifies when the streak should be considered broken (visually showing 0) based on local calendar days upon loading, even before the next session.
+        *   B4.3: **(Revised)** Modify **`award-xp` Edge Function** (Streak Increment/Reset - **Local Time**):
+            *   **Action:**
+                *   **Client Change:** In `app/(tabs)/index.tsx`, when calling `supabase.functions.invoke('award-xp', ...)`, calculate the user's time zone offset: `const userTimezoneOffsetMinutes = new Date().getTimezoneOffset();`. Add this offset to the request body: `{ ..., userTimezoneOffsetMinutes }`.
+                *   **Backend Change (award-xp function):**
+                    *   Accept `userTimezoneOffsetMinutes` from the request body.
+                    *   Fetch the user's profile *before* updating `last_session_timestamp`. Store the *old* `last_session_timestamp`.
+                    *   Get the current timestamp (`now()`).
+                    *   **Convert Dates:** Create a helper function or use date library logic within the Edge Function to convert both `now()` and the *old* `last_session_timestamp` into dates representing the user's local calendar day, using the provided `userTimezoneOffsetMinutes`.
+                        *   *Example JS/Deno logic (needs care with DST/edge cases, library preferred):*
+                            ```javascript
+                            function getLocalDate(utcTimestamp, offsetMinutes) {
+                              const date = new Date(utcTimestamp);
+                              // Apply offset (JS offset is opposite sign)
+                              date.setMinutes(date.getMinutes() - offsetMinutes);
+                              // Return YYYY-MM-DD string or Date object representing local day
+                              return date.toISOString().split('T')[0]; // Simple example
+                            }
+                            const currentLocalDay = getLocalDate(Date.now(), userTimezoneOffsetMinutes);
+                            const lastSessionLocalDay = oldLastSessionTimestamp ? getLocalDate(oldLastSessionTimestamp, userTimezoneOffsetMinutes) : null;
+                            ```
+                    *   **Compare Local Dates:** Compare `currentLocalDay` and `lastSessionLocalDay`.
+                    *   **Calculate New Streaks:**
+                        *   If `lastSessionLocalDay` is null or represents a date *before* "yesterday" (local time), set `new_current_streak` to 1.
+                        *   If `lastSessionLocalDay` represents "yesterday" (local time), increment the existing `current_streak` by 1.
+                        *   If `lastSessionLocalDay` represents "today" (local time), the `current_streak` remains unchanged.
+                    *   Update `new_longest_streak = Math.max(existing_longest_streak, new_current_streak)`.
+                    *   Include the calculated `new_current_streak` and `new_longest_streak` in the final database `UPDATE` call along with XP, level, and the *new* `last_session_timestamp`.
+            *   **Verification:** Streak logic correctly increments/resets based on local calendar days derived from the client's offset. Multiple sessions on the same local day don't increment the streak multiple times.
+        *   B4.4: (TDD) **(Revised)** Update tests for the client-side check logic and Edge Function tests to cover local time zone scenarios (passing different offsets and verifying correct date comparisons and streak results).
+    *   **Success Criteria:** Completing a session >= 25min updates `last_session_timestamp`. The Edge function correctly increments/resets `current_streak` and updates `longest_streak` based on the timing of consecutive **local calendar days**, using the offset provided by the client. Client-side logic correctly interprets the streak status on load based on local time.
 
 5.  **Task B5: Frontend Integration - Fetch & Display Gamification Data (Revised)**
     *   **Status:** **Pending**
@@ -637,11 +649,11 @@ The core Vzn experience relies on a motivating feedback loop driven by XP, level
 *   [x] Task B1: Implement Basic Authentication (Supabase) - *Verified complete by user.*
 *   [x] Task B2: Verify/Update Supabase Database (`profiles` table) - *Schema updated, Type updated, RLS verified, Trigger verified.*
 *   [x] Task B3: Backend Logic - Award XP & Update Level (Supabase Edge Function) (Revised for 2XP) - *Verified complete.*
-*   [x] Task B4: Backend Logic - Update Streak Info (Modify Edge Function/Client Logic)
+*   [x] Task B4: Backend Logic - Update Streak Info (Modify Edge Function/Client Logic) (**Revised for Local Time Zone**)
     *   [x] B4.1: Modify `award-xp` Edge Function (Set `last_session_timestamp`)
-    *   [x] B4.2: Implement Client-Side Streak Check (Local State Reset) - *Verified complete.*
-    *   [x] B4.3: Modify `award-xp` Edge Function (Streak Increment) - *Verified complete.*
-    *   [ ] B4.4: (TDD) Write tests for the client-side check logic and update Edge Function tests to cover streak increments/resets.
+    *   [x] B4.2: **(Revised)** Implement Client-Side Streak Check (**Local Time** Reset on Load) - *Implementation complete.*
+    *   [x] B4.3: **(Revised)** Modify `award-xp` Edge Function (Streak Increment/Reset - **Local Time**) - *Client and Backend Implementation complete.*
+    *   [ ] B4.4: **(Revised)** (TDD) Update tests for local time zone logic.
 *   [x] Task B5: Frontend Integration - Fetch & Display Gamification Data (Revised) - *Verified complete.*
 *   [x] Task B6: Frontend Integration - Trigger Backend on Session Completion (Revised for 2XP) - *Verified complete.*
 
@@ -850,6 +862,7 @@ The app build has been submitted to TestFlight. Before inviting external beta te
     *   [F] **T1.3:** Launch the app for the first time. Verify splash screen appears and transitions to the expected initial screen (likely Login/Auth).
         - splash screen needs to be changed to dark mode
         - splash screen doesnt cover auth screen when loading back in after the user has already logged in before
+        - Bug fixed in development, needs retesting
 
 **II. Authentication**
     *   [P] **T2.1:** Navigate the authentication flow (assuming OTP for now). Successfully receive OTP and log in/sign up.
@@ -863,6 +876,7 @@ The app build has been submitted to TestFlight. Before inviting external beta te
     - custom duration background is see through, needs to make it solid
     *   [F] **T3.3 (Mode - Easy):** Select "Easy Mode". Start timer. Verify Pause button appears. Tap Pause. Verify timer pauses. Tap Resume. Verify timer resumes.
     - Pause button works, Resume button does not
+    - Bug fixed in development, needs retesting
     *   [P] **T3.4 (Mode - Hard):** Select "Hard Mode". Start timer. Verify Pause button is *not* present. Verify Cancel button is present.
     *   [P] **T3.5 (Cancel):** Start timer (Easy or Hard). Tap Cancel button. Verify timer stops and UI resets to inactive state.
     *   [P] **T3.6 (Completion - Short):** Set short duration (e.g., 1 min). Start timer. Let it run to 00:00. Verify timer stops, UI resets, and post-session modal(s) appear.

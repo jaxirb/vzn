@@ -156,7 +156,7 @@ export default function HomeScreen() {
   // Represents the progress of the WHITE circle (0=empty, 1=full)
   const progressAnimation = useRef(new Animated.Value(0)).current; 
 
-  // --- Calculate derived values (using reverted field names) --- //
+  // --- Calculate derived values (using DB field names) --- //
   const currentLevel = profile?.level ?? 1;
   const currentXP = profile?.xp ?? 0;
 
@@ -220,7 +220,7 @@ export default function HomeScreen() {
 
     const durationCompleted = selectedDuration; // Use the duration set for the active session
     const modeCompletedIn = focusMode; // Get the current focus mode
-    const oldLevelBeforeFetch = profile?.level ?? 1; 
+    const oldLevelBeforeFetch = profile?.level ?? 1;
     const oldStreakBeforeFetch = profile?.streak ?? 0;
     const oldXPBeforeFetch = profile?.xp ?? 0; // Capture old XP
 
@@ -231,10 +231,13 @@ export default function HomeScreen() {
 
     try {
       console.log(`[Dev Button] Invoking award-xp function...`);
+      // B4.3: Add timezone offset to function call
+      const userTimezoneOffsetMinutes = new Date().getTimezoneOffset();
       const { data: functionData, error } = await supabase.functions.invoke('award-xp', { // Capture data here
         body: { 
           sessionDurationMinutes: durationCompleted,
-          focusMode: modeCompletedIn // Pass current focus mode
+          focusMode: modeCompletedIn, // Pass current focus mode
+          userTimezoneOffsetMinutes: userTimezoneOffsetMinutes // B4.3: Pass offset
         }
       });
 
@@ -251,7 +254,7 @@ export default function HomeScreen() {
       // B8.1: Process results AFTER profile is refetched
       const newLevel = updatedProfileData?.level ?? oldLevelBeforeFetch;
       const newStreak = updatedProfileData?.streak ?? oldStreakBeforeFetch;
-      const currentXP = updatedProfileData?.xp ?? 0;
+      const currentXPAfterUpdate = updatedProfileData?.xp ?? 0; // Use updated name
       
       // Ensure functionData exists before accessing its properties
       const levelChanged = functionData?.levelChanged ?? (newLevel > oldLevelBeforeFetch);
@@ -266,7 +269,7 @@ export default function HomeScreen() {
       // Calculate XP required for next level based on the *new* level
       const nextLevelDataAfterUpdate = LEVELS.find(l => l.level === newLevel + 1);
       // Ensure a valid number is passed, defaulting to currentXP if max level
-      const xpRequiredForNextLevelAfterUpdate = nextLevelDataAfterUpdate?.xpRequired ?? currentXP;
+      const xpRequiredForNextLevelAfterUpdate = nextLevelDataAfterUpdate?.xpRequired ?? currentXPAfterUpdate; // Use updated var
 
       const sessionInfo: PostSessionData = {
           duration: durationCompleted,
@@ -281,7 +284,7 @@ export default function HomeScreen() {
           newStreak: newStreak,
           streakChanged: streakChanged,
           oldXP: oldXPBeforeFetch,
-          currentXP: currentXP,
+          currentXP: currentXPAfterUpdate, // Use updated var
           xpRequiredForNextLevel: xpRequiredForNextLevelAfterUpdate,
       };
       
@@ -380,7 +383,7 @@ export default function HomeScreen() {
             
             const durationCompleted = completedSessionDuration; // Use the stored duration
             const modeCompletedIn = focusMode; // Use the current focus mode
-            const oldLevelBeforeFetch = profile?.level ?? 1; 
+            const oldLevelBeforeFetch = profile?.level ?? 1;
             const oldStreakBeforeFetch = profile?.streak ?? 0;
             const oldXPBeforeFetch = profile?.xp ?? 0; // Capture old XP
 
@@ -390,10 +393,13 @@ export default function HomeScreen() {
             if (durationCompleted > 0) {
               // const previousLevel = profile?.level; // No longer needed here, captured above
               console.log(`[award-xp] Invoking function with duration: ${durationCompleted}, mode: ${modeCompletedIn}`);
+              // B4.3: Add timezone offset to function call
+              const userTimezoneOffsetMinutes = new Date().getTimezoneOffset();
               supabase.functions.invoke('award-xp', {
                 body: { 
                   sessionDurationMinutes: durationCompleted,
-                  focusMode: modeCompletedIn // B6.4: Pass focusMode
+                  focusMode: modeCompletedIn, // B6.4: Pass focusMode
+                  userTimezoneOffsetMinutes: userTimezoneOffsetMinutes // B4.3: Pass offset
                 }
               })
               .then(async (result: any) => { // Make the success handler async
@@ -411,7 +417,7 @@ export default function HomeScreen() {
                 // B8.1: Process results AFTER profile is refetched
                 const newLevel = updatedProfileDataAfterTimer?.level ?? oldLevelBeforeFetch;
                 const newStreak = updatedProfileDataAfterTimer?.streak ?? oldStreakBeforeFetch;
-                const currentXP = updatedProfileDataAfterTimer?.xp ?? 0;
+                const currentXPAfterUpdate = updatedProfileDataAfterTimer?.xp ?? 0; // Use updated name
                 
                 // Ensure functionData exists before accessing its properties
                 const levelChanged = functionData?.levelChanged ?? (newLevel > oldLevelBeforeFetch);
@@ -426,7 +432,7 @@ export default function HomeScreen() {
                 // Calculate XP required for next level based on the *new* level
                 const nextLevelDataAfterUpdate = LEVELS.find(l => l.level === newLevel + 1);
                 // Ensure a valid number is passed, defaulting to currentXP if max level
-                const xpRequiredForNextLevelAfterUpdate = nextLevelDataAfterUpdate?.xpRequired ?? currentXP;
+                const xpRequiredForNextLevelAfterUpdate = nextLevelDataAfterUpdate?.xpRequired ?? currentXPAfterUpdate; // Use updated var
 
                 const sessionInfo: PostSessionData = {
                     duration: durationCompleted,
@@ -441,7 +447,7 @@ export default function HomeScreen() {
                     newStreak: newStreak,
                     streakChanged: streakChanged,
                     oldXP: oldXPBeforeFetch,
-                    currentXP: currentXP,
+                    currentXP: currentXPAfterUpdate, // Use updated var
                     xpRequiredForNextLevel: xpRequiredForNextLevelAfterUpdate,
                 };
                 
@@ -780,7 +786,7 @@ export default function HomeScreen() {
       ) : (
         <Pressable onPress={() => setIsStreakModalVisible(true)} style={styles.streakContainer}>
           <Ionicons name="flash" size={20} color="#FFD700" />
-          <ThemedText style={styles.streakText}>{loading ? '...' : profile?.streak ?? '-'}</ThemedText>
+          <ThemedText style={styles.streakText}>{loading ? '...' : profile?.streak ?? 0}</ThemedText>
         </Pressable>
       )}
       {/* Spacer */}
@@ -822,7 +828,7 @@ export default function HomeScreen() {
             <View style={styles.xpContainer}>
               {/* XP Bar structure */}
               <View style={styles.xpLevelHeader}>
-                <ThemedText style={styles.xpCurrentLevelText}>LVL {loading ? '...' : profile?.level ?? '-'}</ThemedText>
+                <ThemedText style={styles.xpCurrentLevelText}>LVL {loading ? '...' : profile?.level ?? 1}</ThemedText>
                 <ThemedText style={[
                     styles.xpNextLevelText,
                     // Calculate isUserMaxLevel inline
@@ -1091,6 +1097,8 @@ export default function HomeScreen() {
       <SettingsModal 
         isVisible={isSettingsModalVisible}
         onClose={() => setIsSettingsModalVisible(false)}
+        isVibrationEnabled={isVibrationEnabled}
+        onVibrationToggle={setIsVibrationEnabled}
       />
 
       {/* --- B8.5: Post-Session Modals --- */}

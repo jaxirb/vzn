@@ -14,6 +14,29 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 console.log("Hello from Functions!")
 
+// --- B4.3: Helper function to get YYYY-MM-DD key in user's local time ---
+function getLocalDateKey(utcTimestampStr: string | number | Date, offsetMinutes: number): string {
+  // Create a Date object (handles string, number, or Date input)
+  const utcDate = new Date(utcTimestampStr);
+  
+  // Calculate the timestamp adjusted for the user's offset.
+  // JS getTimezoneOffset() returns minutes WEST of UTC (e.g., +300 for EST which is UTC-5).
+  // We need to SUBTRACT the offset provided by the client (which uses the same sign convention)
+  // to shift the UTC time to the user's local time perspective.
+  const localTimestamp = utcDate.getTime() - (offsetMinutes * 60 * 1000);
+  
+  // Create a new Date object representing the point in time corresponding to the user's local time
+  const localDate = new Date(localTimestamp);
+
+  // Extract YYYY, MM, DD from the local date object, using UTC methods 
+  // because the date object itself represents the shifted point in time.
+  const year = localDate.getUTCFullYear();
+  const month = (localDate.getUTCMonth() + 1).toString().padStart(2, '0'); // Months are 0-indexed
+  const day = localDate.getUTCDate().toString().padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
 // Define level thresholds directly in the function for self-containment
 // (Alternatively, consider fetching from a shared location or DB table in future)
 const LEVELS: Array<{ level: number; xpRequired: number }> = [
@@ -115,9 +138,10 @@ serve(async (req: Request) => {
     const userId = user.id;
     console.log(`[award-xp] Authenticated user: ${userId}`);
 
-    // 3. Read sessionDurationMinutes and focusMode from request body
+    // 3. Read data from request body (including timezone offset)
     let sessionDurationMinutes: number;
     let focusMode: 'easy' | 'hard' = 'easy'; // Default to easy
+    let userTimezoneOffsetMinutes: number = 0; // Default to UTC offset
     try {
         const body = await req.json();
         if (typeof body?.sessionDurationMinutes !== 'number' || body.sessionDurationMinutes <= 0) {
@@ -128,17 +152,24 @@ serve(async (req: Request) => {
         if (body?.focusMode === 'easy' || body?.focusMode === 'hard') {
             focusMode = body.focusMode;
         }
+        // B4.3: Get timezone offset
+        if (typeof body?.userTimezoneOffsetMinutes === 'number') {
+            userTimezoneOffsetMinutes = body.userTimezoneOffsetMinutes;
+        } else {
+            console.warn(`[award-xp] userTimezoneOffsetMinutes not provided or invalid for user ${userId}, defaulting to UTC (0).`);
+            // Keep default of 0
+        }
     } catch (e) {
          console.error("Error parsing request body:", e);
-         return new Response(JSON.stringify({ error: 'Invalid request body. Expecting JSON with sessionDurationMinutes (number) and optional focusMode ("easy"|"hard").' }), {
+         return new Response(JSON.stringify({ error: 'Invalid request body. Expecting JSON with sessionDurationMinutes (number), optional focusMode ("easy"|"hard"), and optional userTimezoneOffsetMinutes (number).' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
-    console.log(`[award-xp] Received duration: ${sessionDurationMinutes} min, mode: ${focusMode} for user ${userId}`);
+    console.log(`[award-xp] Received duration: ${sessionDurationMinutes} min, mode: ${focusMode}, offset: ${userTimezoneOffsetMinutes} min for user ${userId}`);
 
     // 4. Fetch user's current profile (including streak info)
-    // Define expected shape including streak fields
+    // Define expected shape including streak fields with REVERTED names
     interface ProfileDataForUpdate extends ProfileData {
         streak: number;
         longest_streak: number;
@@ -146,7 +177,7 @@ serve(async (req: Request) => {
     }
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('xp, level, streak, longest_streak, last_session_timestamp') // Add streak fields
+      .select('xp, level, streak, longest_streak, last_session_timestamp') // Use REVERTED field names
       .eq('id', userId)
       .single<ProfileDataForUpdate>(); // Use updated interface
 
@@ -172,56 +203,63 @@ serve(async (req: Request) => {
     }
     console.log(`[award-xp] Final XP awarded for user ${userId}: ${finalXpAwarded}`);
 
-    // 6. Calculate new total XP using final awarded XP
+    // 6. Calculate new total XP using final awarded XP and REVERTED field name
     const newTotalXp = profile.xp + finalXpAwarded;
     console.log(`[award-xp] New total XP for user ${userId}: ${newTotalXp}`);
 
-    // 7. Determine new level
+    // 7. Determine new level using REVERTED field name
     const newLevel = calculateLevel(newTotalXp);
     const levelChanged = newLevel !== profile.level;
     console.log(`[award-xp] New level for user ${userId}: ${newLevel} (Changed: ${levelChanged})`);
 
-    // --- Streak Calculation Logic --- 
+    // --- B4.3: Streak Calculation Logic (Revised for Local Time Zone) --- 
     let newStreak = profile.streak;
     let newLongestStreak = profile.longest_streak;
-    let newLastSessionTimestamp: string | null = profile.last_session_timestamp;
+    let newLastSessionTimestamp: string | null = profile.last_session_timestamp; 
     let streakUpdated = false;
 
+    // Only update streak info if session was qualifying (>= 25 min) and XP was awarded
     if (sessionDurationMinutes >= 25 && finalXpAwarded > 0) { 
-        const now = new Date();
-        // Use UTC dates for comparison
-        const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-        const yesterdayUTC = new Date(todayUTC);
-        yesterdayUTC.setUTCDate(todayUTC.getUTCDate() - 1); // Start of yesterday UTC
+        const now = Date.now(); // Current time as UTC timestamp
+        const nowISO = new Date(now).toISOString(); // Current time as ISO string for DB update
 
-        let lastSessionDateUTC: Date | null = null;
+        // Get today's and yesterday's date keys in the user's local time
+        const todayLocalKey = getLocalDateKey(now, userTimezoneOffsetMinutes);
+        
+        // Calculate yesterday's timestamp (simple subtraction, safe across DST)
+        const yesterdayTimestamp = now - (24 * 60 * 60 * 1000);
+        const yesterdayLocalKey = getLocalDateKey(yesterdayTimestamp, userTimezoneOffsetMinutes);
+
+        let lastSessionLocalKey: string | null = null;
         if (profile.last_session_timestamp) {
-            const lastTimestamp = new Date(profile.last_session_timestamp);
-            // Extract UTC date parts from the stored timestamp
-            lastSessionDateUTC = new Date(Date.UTC(lastTimestamp.getUTCFullYear(), lastTimestamp.getUTCMonth(), lastTimestamp.getUTCDate())); 
+            lastSessionLocalKey = getLocalDateKey(profile.last_session_timestamp, userTimezoneOffsetMinutes);
         }
 
-        // Compare dates based on the start of the day in UTC
-        if (!lastSessionDateUTC || lastSessionDateUTC.getTime() < yesterdayUTC.getTime()) {
-            // Case 1: No previous session OR last session was before yesterday (UTC) -> Reset streak to 1
-            console.log(`[award-xp] Streak Debug: Hitting CASE 1 (Reset). Last UTC: ${lastSessionDateUTC?.toISOString() ?? 'None'}, Yesterday UTC: ${yesterdayUTC.toISOString()}`);
+        console.log(`[award-xp] Streak Dates - Today Local: ${todayLocalKey}, Yesterday Local: ${yesterdayLocalKey}, Last Session Local: ${lastSessionLocalKey}`);
+
+        // Compare LOCAL date keys
+        if (!lastSessionLocalKey || lastSessionLocalKey < yesterdayLocalKey) {
+            // Case 1: No previous qualifying session OR last session was before yesterday (local time) -> Reset streak to 1
+            console.log(`[award-xp] Streak Case 1: Resetting streak to 1. (Last: ${lastSessionLocalKey}, Yesterday: ${yesterdayLocalKey})`);
             newStreak = 1;
             streakUpdated = true;
-        } else if (lastSessionDateUTC.getTime() === yesterdayUTC.getTime()) {
-            // Case 2: Last session was exactly yesterday (UTC) -> Increment streak
-            console.log(`[award-xp] Streak Debug: Hitting CASE 2 (Increment). Current profile streak: ${profile.streak}. Last UTC: ${lastSessionDateUTC.toISOString()}, Yesterday UTC: ${yesterdayUTC.toISOString()}`);
+        } else if (lastSessionLocalKey === yesterdayLocalKey) {
+            // Case 2: Last session was exactly yesterday (local time) -> Increment streak
+            console.log(`[award-xp] Streak Case 2: Incrementing streak from ${profile.streak} to ${profile.streak + 1}. (Last: ${lastSessionLocalKey}, Yesterday: ${yesterdayLocalKey})`);
             newStreak = profile.streak + 1;
             streakUpdated = true;
-        } else if (lastSessionDateUTC.getTime() === todayUTC.getTime()) {
-            // Case 3: Last session was earlier today (UTC) -> Do nothing to streak number
-            console.log(`[award-xp] Streak Debug: Hitting CASE 3 (Same Day). Streak remains ${profile.streak}. Last UTC: ${lastSessionDateUTC.toISOString()}, Today UTC: ${todayUTC.toISOString()}`);
+        } else if (lastSessionLocalKey === todayLocalKey) {
+            // Case 3: Last session was earlier today (local time) -> Do nothing to streak number
+            console.log(`[award-xp] Streak Case 3: Multiple sessions today. Streak remains ${profile.streak}. (Last: ${lastSessionLocalKey}, Today: ${todayLocalKey})`);
+            // `streakUpdated` remains false unless longest streak changes below
         } else {
-             // Case 4: Unexpected date (e.g., future)
-             console.log(`[award-xp] Streak Debug: Hitting CASE 4 (Unexpected Date). Resetting. Last UTC: ${lastSessionDateUTC?.toISOString()}, Today UTC: ${todayUTC.toISOString()}`);
+             // Case 4: Should not happen with dates, but fallback -> Reset to 1
+             console.warn(`[award-xp] Streak Case 4: Unexpected date comparison. Resetting streak to 1. (Last: ${lastSessionLocalKey}, Today: ${todayLocalKey})`);
              newStreak = 1;
              streakUpdated = true;
         }
 
+        // Always check/update longest streak if the current streak might have changed
         if (newStreak > newLongestStreak) {
             newLongestStreak = newStreak;
             streakUpdated = true;
@@ -229,8 +267,9 @@ serve(async (req: Request) => {
         }
 
         // Timestamp is only updated for qualifying sessions
-        newLastSessionTimestamp = now.toISOString(); 
-        streakUpdated = true; // Ensure timestamp update happens if this block runs
+        newLastSessionTimestamp = nowISO; // Correct: Use the ISO string created from the Date object
+        // Mark streak as updated because the timestamp changed
+        streakUpdated = true; 
         console.log(`[award-xp] Updating last_session_timestamp for user ${userId} to ${newLastSessionTimestamp}`);
 
     } else {
@@ -238,32 +277,40 @@ serve(async (req: Request) => {
     }
     // --- End Streak Calculation --- 
 
-    // 8. Prepare data for update
-    const updateData: {
+    // 8. Prepare data for update using REVERTED field names
+    // Define the type explicitly for clarity
+    type ProfileUpdatePayload = {
       xp: number;
       level: number;
-      streak?: number;
-      longest_streak?: number;
-      last_session_timestamp?: string | null; 
-    } = {
-      xp: newTotalXp,
-      level: newLevel,
+      streak?: number;       // Reverted & Optional
+      longest_streak?: number;       // Optional: Only include if changed
+      last_session_timestamp?: string | null; // Optional: Use null for clearing, string for setting
     };
 
-    // Include streak fields only if streak logic ran and indicated a change
-    if (streakUpdated) { 
+    const updateData: ProfileUpdatePayload = {
+      xp: newTotalXp,      // Reverted field name
+      level: newLevel,  // Reverted field name
+    };
+
+    // Conditionally add streak fields ONLY if they were potentially updated
+    if (streakUpdated) {
         updateData.streak = newStreak;
         updateData.longest_streak = newLongestStreak;
-        updateData.last_session_timestamp = newLastSessionTimestamp; 
+        // Ensure timestamp is only updated if streak logic ran and deemed it necessary
+        if (newLastSessionTimestamp !== profile.last_session_timestamp) {
+             updateData.last_session_timestamp = newLastSessionTimestamp; // Assign directly
+        }
     }
 
+    console.log(`[award-xp] Preparing to update profile for user ${userId} with data:`, updateData);
+
     // 9. Update user profile in the database
-    console.log(`[award-xp] Updating profile for user ${userId} with:`, updateData);
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
       .update(updateData)
       .eq('id', userId)
-      .select('xp, level, streak, longest_streak, last_session_timestamp') // Select all updated fields
+      // Select using REVERTED field names
+      .select('xp, level, streak, longest_streak, last_session_timestamp') 
       .single<ProfileDataForUpdate>(); // Use updated interface
 
     if (updateError) {

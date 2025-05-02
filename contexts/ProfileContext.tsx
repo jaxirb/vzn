@@ -85,33 +85,45 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       } else if (data) {
         console.log('[ProfileContext] Profile fetched successfully:', data);
         
-        // --- Task B4.2: Client-side Streak Check --- //
+        // --- Task B4.2: Client-side Streak Check (Revised for Local Time) --- //
         let profileDataToSet = data; // Start with fetched data
+
+        // Get the start of today in local time
+        const now = new Date();
+        const todayLocalStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 00:00:00 local time
+
+        // Get the start of yesterday in local time
+        const yesterdayLocalStart = new Date(todayLocalStart);
+        yesterdayLocalStart.setDate(todayLocalStart.getDate() - 1); // Yesterday 00:00:00 local time
+
         if (data.last_session_timestamp) {
-          const now = new Date();
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const yesterday = new Date(today);
-          yesterday.setDate(today.getDate() - 1);
+            const lastTimestampUTC = new Date(data.last_session_timestamp); // This is a UTC point in time
 
-          const lastTimestamp = new Date(data.last_session_timestamp);
-          const lastSessionDate = new Date(lastTimestamp.getFullYear(), lastTimestamp.getMonth(), lastTimestamp.getDate());
-
-          // If the last session was before yesterday, reset streak locally
-          if (lastSessionDate.getTime() < yesterday.getTime()) {
-            console.log(`[ProfileContext] Streak broken! Last session (${lastSessionDate.toISOString()}) was before yesterday (${yesterday.toISOString()}). Resetting local streak to 0.`);
-            profileDataToSet = { ...data, streak: 0 };
-          } else {
-            console.log(`[ProfileContext] Streak maintained. Last session (${lastSessionDate.toISOString()}) was not before yesterday (${yesterday.toISOString()}).`);
-          }
+            // Check if the last session UTC time is strictly before the start of yesterday (local time)
+            if (lastTimestampUTC.getTime() < yesterdayLocalStart.getTime()) {
+                // Only update if the streak needs resetting
+                if (data.streak > 0) {
+                    console.log(`[ProfileContext] Streak broken! Last session (UTC: ${lastTimestampUTC.toISOString()}) was before the start of local yesterday (${yesterdayLocalStart.toISOString()}). Resetting local streak to 0.`);
+                    profileDataToSet = { ...data, streak: 0 };
+                } else {
+                    console.log(`[ProfileContext] Streak maintained (already 0). Last session (UTC: ${lastTimestampUTC.toISOString()}) was before local yesterday (${yesterdayLocalStart.toISOString()}).`);
+                    // profileDataToSet remains 'data'
+                }
+            } else {
+                console.log(`[ProfileContext] Streak maintained. Last session (UTC: ${lastTimestampUTC.toISOString()}) was NOT before the start of local yesterday (${yesterdayLocalStart.toISOString()}). Current streak: ${data.streak}`);
+                // profileDataToSet remains 'data'
+            }
         } else {
-            // If no last session timestamp exists and streak is > 0, reset it.
+            // No last session timestamp exists. Reset streak if it's currently non-zero.
             if (data.streak > 0) {
                 console.log(`[ProfileContext] No last session timestamp found, resetting local streak from ${data.streak} to 0.`);
                 profileDataToSet = { ...data, streak: 0 };
             } else {
                 console.log(`[ProfileContext] No last session timestamp, streak is already 0.`);
+                // profileDataToSet remains 'data'
             }
         }
+        
         // Set the potentially modified profile data to state
         setProfile(profileDataToSet);
         // --- End Task B4.2 --- //
