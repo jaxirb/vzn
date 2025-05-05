@@ -14,6 +14,11 @@ const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email);
 };
 
+// --- App Review Demo Account --- 
+const DEMO_EMAIL = 'vzntest02@gmail.com';
+const DEMO_PASSWORD = 'VznDemoPass123!'; // Ensure this matches the password set via Edge Function
+// --- End App Review --- 
+
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,26 +31,51 @@ export default function SignInScreen() {
 
   async function signInWithEmail() {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email,
+    const enteredEmail = email.trim().toLowerCase(); // Normalize email
+
+    // --- App Review Demo Account Logic ---
+    if (enteredEmail === DEMO_EMAIL) {
+      console.log('[Auth Index] Demo email detected, attempting password sign-in...');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
+      });
+
+      if (error) {
+        Alert.alert('Demo Login Error', error.message);
+        console.error('Supabase signInWithPassword error (Demo Account):', error);
+      } else {
+        // Success! Session is established.
+        // onAuthStateChange listener in _layout.tsx handles navigation.
+        console.log('[Auth Index] Demo account sign-in successful.');
+      }
+      setLoading(false);
+      return; // Stop here for demo account
+    }
+    // --- End Demo Account Logic ---
+
+    // --- Standard OTP Flow ---
+    console.log('[Auth Index] Standard email detected, attempting OTP sign-in...');
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: enteredEmail, // Use normalized email
       options: {
         shouldCreateUser: true,
       },
     });
 
-    if (error) {
-      Alert.alert('Error', error.message);
-      console.error('Supabase signInWithOtp error:', error);
+    if (otpError) {
+      Alert.alert('Error', otpError.message);
+      console.error('Supabase signInWithOtp error:', otpError);
       setLoading(false); // Ensure loading is reset on error
     } else {
-      // No Alert here, let OTP screen handle prompt
+      // Navigate to OTP screen for standard users
       router.push({
         pathname: '/(auth)/verify-otp',
-        params: { email: email },
+        params: { email: enteredEmail }, // Pass normalized email
       });
-      // Keep loading true until navigation completes potentially? Or reset here.
       setLoading(false); // Reset loading after initiating navigation
     }
+    // --- End Standard OTP Flow ---
   }
 
   // --- Add Sign Out Handler ---

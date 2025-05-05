@@ -26,6 +26,7 @@ function useProtectedRoute(
   profile: Profile | null,
   profileLoading: boolean,
   isLayoutReady: boolean,
+  isNavigationResolved: boolean,
   firstRun: React.MutableRefObject<boolean>,
   setNavigationTarget: (target: string | null) => void,
   setIsNavigationResolved: (value: boolean) => void
@@ -36,6 +37,12 @@ function useProtectedRoute(
   const isProfileCheckReady = !profileLoading || !session;
 
   useEffect(() => {
+    let isMounted = true; // Flag to check if component is still mounted
+    let timeoutId: NodeJS.Timeout | null = null; // Keep track of the timeout
+
+    // Remove the async wrapper, revert to original structure
+    // Start of original useEffect logic
+
     // Wait for auth session, fonts (via isLayoutReady), AND profile check to be ready
     if (!isLayoutReady || !isProfileCheckReady) { 
       console.log(`[Auth Guard Inner] Effect skipped: LayoutReady=${isLayoutReady}, ProfileCheckReady=${isProfileCheckReady}`);
@@ -45,39 +52,53 @@ function useProtectedRoute(
     console.log(`[Auth Guard Inner] Scheduling check for next tick. Session: ${!!session}, Profile: ${!!profile}, ProfileLoading: ${profileLoading}, LayoutReady: ${isLayoutReady}, FirstRun: ${firstRun.current}`);
 
     // *** Delay the core logic slightly ***
-    const timerId = setTimeout(() => {
+    timeoutId = setTimeout(() => {
+      if (!isMounted) return; // Check mount status again inside timeout
+
       console.log('[Auth Guard Inner] Timeout executing...');
-      if (!firstRun.current && !profileLoading) { // Add !profileLoading check here too
-          console.log('[Auth Guard Inner] Aborting timeout execution, not first run or profile is stable.')
-          // We might need to re-resolve navigation if profile updated but target didn't change
-          // Let's check if navigation IS resolved AND target is null
-          // This part gets tricky, let's simplify for now and only check firstRun inside timeout
-          // return; 
+      // --- Start of original timeout logic --- 
+      if (!profileLoading) { // Only check if profile is NOT loading anymore
+          console.log('[Auth Guard Inner] Checking if execution should be aborted (profile stable)...')
+          // Add a check specifically for subsequent runs where profile is stable *and* nav is already resolved
+          if (!firstRun.current && isNavigationResolved) {
+              console.log('[Auth Guard Inner] Aborting timeout execution: Not first run and navigation already resolved.')
+              return;
+          }
+          // If it's not the first run but navigation *isn't* resolved yet, or profile just became stable,
+          // we should continue to ensure the correct target is set.
+          console.log('[Auth Guard Inner] Proceeding with logic execution (first run or nav not resolved or profile just stabilized).')
+      } else if (firstRun.current) {
+           console.log('[Auth Guard Inner] Profile still loading, but allowing first run check.');
+           // Allow the logic to run on the very first execution even if profile is loading,
+           // as it might need to redirect to (auth) immediately.
+      } else {
+          console.log('[Auth Guard Inner] Aborting timeout execution: Profile is loading and not first run.')
+          return; // Abort if profile is loading on subsequent runs
       }
 
-      const currentSegments = segments; // Capture segments at the time of execution
+      const currentSegments = segments; 
       const inAuthGroup = currentSegments[0] === '(auth)';
       const inOnboardingGroup = currentSegments[0] === 'onboarding';
-      // @ts-ignore - Check for initial empty segments array
-      const isAtRootIndex = currentSegments.length === 0 || currentSegments[0] === '';
-      console.log(`[Auth Guard Inner Timeout] Running checks. Segments: ${currentSegments.join('/') || '(root)'}, InAuth: ${inAuthGroup}, InOnboarding: ${inOnboardingGroup}, IsRoot: ${isAtRootIndex}, Session: ${!!session}, Profile: ${!!profile}`);
+      console.log(`[Auth Guard Inner Timeout] Running checks. Segments: ${currentSegments.join('/') || '(root)'}, InAuth: ${inAuthGroup}, InOnboarding: ${inOnboardingGroup}, Session: ${!!session}, Profile: ${!!profile}`);
 
       const setTarget = (target: string) => {
         console.log(`[Auth Guard Inner Timeout] Setting navigation target to ${target}`);
-        setNavigationTarget(target);
-        // Resolve navigation here, as the target is now definitively set
-        setIsNavigationResolved(true); 
-        firstRun.current = false; // Mark first run complete only after target is set or stayed
+        if (isMounted) {
+          setNavigationTarget(target);
+          setIsNavigationResolved(true); 
+        }
+        firstRun.current = false; 
       };
 
       const stayAndResolve = () => {
           console.log(`[Auth Guard Inner Timeout] Staying in current location. Resolving navigation.`);
-          setIsNavigationResolved(true);
-          setNavigationTarget(null);
-          firstRun.current = false; // Mark first run complete
+          if (isMounted) {
+              setIsNavigationResolved(true);
+              setNavigationTarget(null);
+          }
+          firstRun.current = false; 
       }
 
-      // --- Step 1: Handle No Session ---
       if (!session) {
         if (!inAuthGroup) {
           console.log('[Auth Guard Inner Timeout] No session and outside Auth group. Setting target: /(auth).');
@@ -85,12 +106,10 @@ function useProtectedRoute(
         } else {
           stayAndResolve();
         }
-        return; // Exit early if no session
+        return; 
       }
 
-      // --- Step 2: Handle Existing Session (Profile should be loaded or loading is false) ---
       console.log('[Auth Guard Inner Timeout] Session exists. Checking onboarding status from context profile...');
-
       const onboardingComplete = profile?.onboarding_completed ?? false;
       console.log(`[Auth Guard Inner Timeout] Profile check complete (from context). OnboardingComplete: ${onboardingComplete}`);
 
@@ -101,19 +120,25 @@ function useProtectedRoute(
         } else {
           stayAndResolve();
         }
-      } else { // Onboarding IS complete
-        if (inAuthGroup || inOnboardingGroup || isAtRootIndex) {
-          console.log(`[Auth Guard Inner Timeout] Onboarding Complete & in Auth/Onboarding/Root -> Setting target: /(tabs)`);
+      } else { 
+        if (inAuthGroup || inOnboardingGroup) {
+          console.log(`[Auth Guard Inner Timeout] Onboarding Complete & in Auth/Onboarding -> Setting target: /(tabs)`);
           setTarget('/(tabs)');
         } else {
           stayAndResolve();
         }
       }
-
+      // --- End of original timeout logic --- 
     }, 0); // Execute after current stack clears
+    // End of original useEffect logic
 
-    // Cleanup the timeout if dependencies change or component unmounts before it runs
-    return () => clearTimeout(timerId);
+    // Cleanup function
+    return () => {
+      isMounted = false; // Mark as unmounted
+      if (timeoutId) {
+        clearTimeout(timeoutId); // Clear the timeout if it was set
+      }
+    };
 
   // Add profile and profileLoading to dependencies!
   }, [session, profile, profileLoading, isLayoutReady, isProfileCheckReady, segments, firstRun, setNavigationTarget, setIsNavigationResolved]);
@@ -151,7 +176,8 @@ function InnerLayout() {
     session,
     profile,
     profileLoading,
-    isLayoutReady, // Pass layout readiness (needs font state)
+    isLayoutReady,
+    isNavigationResolved,
     firstRun,
     stableSetNavigationTarget,
     setIsNavigationResolved

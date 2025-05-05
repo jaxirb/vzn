@@ -925,9 +925,83 @@ The app build has been submitted to TestFlight. Before inviting external beta te
 ---
 *End of Test Plan Section*
 
+## Project Status Board
+
+-   [x] Locate OTP Verification File (`app/(auth)/verify-otp.tsx`)
+-   [x] Define Fixed OTP Code ("123456" for `vzntest02@gmail.com`)
+-   [x] Implement Conditional Bypass Logic
+-   [ ] Testing
+
+# VZN App - App Store Review OTP Bypass
+
+## Background and Motivation
+
+Apple App Store review requires a reliable way to log into the provided demo account (`vzntest02@gmail.com`) to test the app's functionality. The current OTP mechanism uses dynamic codes, which complicates the review process. Apple has requested a way to bypass the standard OTP for this specific demo account, suggesting a fixed, pre-defined code.
+
+The goal was to implement a conditional bypass in the OTP verification logic that allows login for the demo account using a fixed code, without affecting the standard OTP flow for regular users.
+
+*(Revised Goal)*: Implement a separate, password-based login flow specifically for the demo account, bypassing the OTP flow entirely for that user, to satisfy App Store review requirements.
+
+## Key Challenges and Analysis
+
+-   **Identifying the Correct Code Location:** Pinpointed OTP verification (`verify-otp.tsx`) and initial login (`index.tsx`) within `app/(auth)/`.
+-   **Security Considerations:** Ensured the password login only applies to the specific demo email.
+-   **Maintaining Standard Flow:** The normal Supabase OTP verification remains unchanged for all other accounts.
+-   **Setting Password on OTP User:** Supabase dashboard doesn't allow directly setting a password on an existing OTP-only user. Required using an admin action.
+-   **Navigation Guard Logic:** The app's auth guard needed refinement to handle navigation correctly after profile state changes (like onboarding completion) following the initial login.
+
+## High-level Task Breakdown
+
+*(Original plan using fixed OTP was superseded)*
+
+**Revised Plan (Password Bypass):**
+
+1.  **Define Demo Password:** Choose a password for the demo account (`VznDemoPass123!`).
+2.  **Set Demo Password (Admin Action):**
+    *   Create temporary Supabase Edge Function (`temp-set-password`) using Service Role Key.
+    *   Function finds user by email (`listUsers`) and updates password (`admin.updateUserById`).
+    *   Deploy function.
+    *   Invoke function once (via `curl`).
+    *   Delete function immediately.
+3.  **Modify Login Screen (`app/(auth)/index.tsx`):**
+    *   Add check for `DEMO_EMAIL`.
+    *   If demo email, call `supabase.auth.signInWithPassword` with `DEMO_PASSWORD`.
+    *   If not demo email, proceed with existing `supabase.auth.signInWithOtp`.
+4.  **Refine Auth Guard (`app/_layout.tsx`):**
+    *   Adjust logic within `useProtectedRoute` hook to correctly trigger navigation after profile updates (like onboarding completion) occur post-login.
+5.  **Testing:**
+    *   Test demo account login (skips OTP, goes to onboarding/tabs).
+    *   Test normal account login (uses OTP flow).
+    *   Test logout from both flows (redirects to auth).
+
+## Project Status Board
+
+-   [x] Locate OTP Verification File (`app/(auth)/verify-otp.tsx`)
+-   [x] Define Fixed OTP Code ("123456" for `vzntest02@gmail.com`) *(Original plan)*
+-   [x] Implement Conditional Bypass Logic *(Original plan - several attempts)*
+-   [x] Testing *(Original plan failed due to session state issues)*
+
+**Revised Plan Status:**
+
+-   [x] Define Demo Password (`VznDemoPass123!`)
+-   [x] Set Demo Password (Admin Action via Edge Function)
+-   [x] Modify Login Screen (`app/(auth)/index.tsx`) for Password Bypass
+-   [x] Refine Auth Guard (`app/_layout.tsx`)
+-   [x] Testing (All scenarios successful)
+
+## Executor's Feedback or Assistance Requests
+
+-   Initial attempts to bypass OTP verification directly caused session state inconsistencies and navigation problems.
+-   Using a password-based login specifically for the demo account proved more robust.
+-   Setting the password required a temporary admin-level Edge Function as the dashboard lacked a direct option.
+-   Auth Guard logic needed adjustment to handle navigation correctly after profile changes following login.
+-   Task is complete. Demo account `vzntest02@gmail.com` can log in with password `VznDemoPass123!`, bypassing OTP.
+
+## Lessons
+
+*   Directly bypassing Supabase auth steps (like `verifyOtp`) can lead to inconsistent session states recognized by the client library and `onAuthStateChange` listeners. Prefer using standard auth methods if possible.
+*   Setting passwords for existing OTP-only users might require admin privileges (e.g., via Edge Function with Service Role Key) if the dashboard doesn't provide a direct option.
+*   App navigation guards (`useProtectedRoute` hook in `_layout.tsx`) need to correctly handle re-evaluation when dependent state (like `profile` or `session`) changes after the initial render/navigation, especially following actions like onboarding completion.
+*   Supabase CLI commands (`invoke`) might have version-specific syntax or require specific project linking context; `curl` can be a reliable alternative for invoking functions directly.
+
 </rewritten_file>
-
-
-
-### Lessons
-*   Supabase Edge Function secret names cannot start with the reserved `SUPABASE_` prefix.

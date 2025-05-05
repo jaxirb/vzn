@@ -16,8 +16,6 @@ export default function VerifyOtpScreen() {
   async function verifyOtpCode() {
     if (!email) {
       Alert.alert('Error', 'Email parameter is missing.');
-      // Optionally navigate back or handle error appropriately
-      // router.back(); 
       return;
     }
     if (token.length !== 6) { // Add check for token length before API call
@@ -25,6 +23,8 @@ export default function VerifyOtpScreen() {
       return;
     }
     setLoading(true);
+
+    // Removed App Store Review Bypass Check logic
     
     // Call Supabase verifyOtp
     const { data, error } = await supabase.auth.verifyOtp({
@@ -40,8 +40,9 @@ export default function VerifyOtpScreen() {
     } else {
       // Success! Session should be established.
       // The onAuthStateChange listener in _layout.tsx will handle navigation.
-      // Alert.alert('Success!', 'You have been signed in.'); // Remove success alert
-      // No explicit navigation here, rely on root layout listener
+      console.log('[verifyOtpCode] Supabase verifyOtp successful. Relying on listener for navigation.');
+      // Alert.alert('Success!', 'You have been signed in.');
+      // No explicit navigation here
     }
     setLoading(false);
   }
