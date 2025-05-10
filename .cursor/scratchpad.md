@@ -1004,4 +1004,215 @@ The goal was to implement a conditional bypass in the OTP verification logic tha
 *   App navigation guards (`useProtectedRoute` hook in `_layout.tsx`) need to correctly handle re-evaluation when dependent state (like `profile` or `session`) changes after the initial render/navigation, especially following actions like onboarding completion.
 *   Supabase CLI commands (`invoke`) might have version-specific syntax or require specific project linking context; `curl` can be a reliable alternative for invoking functions directly.
 
+---
+*(Previous initiatives above this line are considered complete or archived.)*
+---
+
+## 🚀 Vzn v2.0 Development Plan
+
+### Background and Motivation
+
+Vzn v2.0 aims to significantly enhance the user experience, focusing on increasing retention and engagement. Building upon the MVP, this version will introduce key improvements such as Single Sign-On (SSO), a more intuitive bottom-tab navigation system, a revamped focus session completion flow, and critical bug fixes. The overarching goal is to create a more polished, reliable, and motivating application that helps users build better concentration habits, as outlined in `prd2.0.md`.
+
+### Key Challenges and Analysis
+
+1.  **SSO Implementation:** Integrating Google and Apple SSO requires careful handling of authentication tokens, platform-specific configurations (iOS, Android, Web), and Supabase integration. Ensuring a smooth user experience across different sign-up/login paths will be crucial.
+2.  **Tab Navigation Overhaul:** Migrating from the current (likely single-screen or simple navigation) to a tab-based structure (`Focus`, `Home`, `Profile`) will impact the entire app's UI flow. State management across tabs and deep linking might present challenges. The existing `app/(tabs)/index.tsx` will become the "Focus" tab, and new screens/layouts will be needed for "Home" and "Profile".
+3.  **New Session End Screen & XP Feedback:** Designing and implementing a new session completion screen, and more dynamic XP feedback animations, requires careful UI/UX consideration to make it "satisfying" as per the PRD.
+4.  **State Management for New Screens:** The "Home" and "Profile" tabs will introduce new states and data fetching requirements (e.g., analytics, profile/plan details).
+5.  **Bug Fixes - Root Cause Analysis:**
+    *   `name undefined` bug: Needs investigation into the user creation/profile update flow post-signup.
+    *   XP calculation: Requires thorough testing and potentially revisiting the `award-xp` function or related client-side logic.
+    *   Resurrection token: This is likely a Supabase-specific auth token issue that needs careful debugging, possibly related to session refresh or handling.
+    *   localStorage logout: This suggests an issue with how session data is persisted or validated on the client-side, potentially conflicting with Supabase's session management.
+6.  **Maintaining Existing Functionality:** Ensuring all current working features (timer, basic XP, levels, streaks, settings modal) continue to function correctly after major refactoring for navigation and UI changes.
+
+### High-level Task Breakdown (Vzn v2.0)
+
+*(Tasks are based on `prd2.0.md`. Executor to proceed one major feature group or bugfix at a time.)*
+
+**V2.0.A: Authentication Enhancements**
+
+1.  **Task V2.A1: Add SSO - Google Login**
+    *   **Goal:** Implement "Sign in with Google" functionality.
+    *   **Sub-Tasks:**
+        *   A1.1: Configure Google Cloud project and OAuth credentials.
+        *   A1.2: Integrate Supabase Google Auth provider.
+        *   A1.3: Implement Google Sign-In button and flow on the client-side (likely in `app/(auth)/index.tsx`).
+        *   A1.4: Test sign-up and login with new Google accounts.
+        *   A1.5: Test linking Google to existing accounts (if applicable/desired).
+    *   **Success Criteria:** Users can successfully sign up and log in using their Google accounts. New profiles are created correctly in Supabase.
+
+2.  **Task V2.A2: Add SSO - Apple Login**
+    *   **Goal:** Implement "Sign in with Apple" functionality.
+    *   **Sub-Tasks:**
+        *   A2.1: Configure Apple Developer account, App ID, Services ID, and private key for "Sign in with Apple".
+        *   A2.2: Integrate Supabase Apple Auth provider.
+        *   A2.3: Implement Apple Sign-In button and flow on the client-side.
+        *   A2.4: Test sign-up and login with new Apple accounts.
+        *   A2.5: Test linking Apple to existing accounts (if applicable/desired).
+    *   **Success Criteria:** Users can successfully sign up and log in using their Apple accounts. New profiles are created correctly in Supabase.
+
+3.  **Task V2.A3: Fix "Name Undefined" Bug**
+    *   **Goal:** Ensure user's name/display name is correctly captured and stored/displayed after sign-up, regardless of auth method.
+    *   **Sub-Tasks:**
+        *   A3.1: Investigate current profile creation logic (Supabase trigger `create_profile_for_new_user`, onboarding flow) to see where name handling might be missing or failing, especially for OTP/SSO.
+        *   A3.2: Ensure name is fetched from SSO providers if available.
+        *   A3.3: If name is not available from auth provider, ensure onboarding flow correctly prompts for and saves the name to the `profiles` table.
+        *   A3.4: Verify name is consistently displayed in UI where appropriate (e.g., Account screen).
+    *   **Success Criteria:** User's name is no longer undefined after signup. It's either captured from SSO or through the onboarding process and stored in `profiles`.
+
+4.  **Task V2.A4: Add Loading Indicator during Authentication**
+    *   **Goal:** Provide visual feedback to the user while authentication processes are in progress.
+    *   **Sub-Tasks:**
+        *   A4.1: Implement a loading state (e.g., `isLoading`) in the auth screens (`app/(auth)/index.tsx`, `app/(auth)/verify-otp.tsx`).
+        *   A4.2: Display a spinner or loading message when `isLoading` is true (e.g., after pressing "Sign In" and before navigation or error).
+    *   **Success Criteria:** A loading indicator is shown during auth operations, improving perceived performance.
+
+**V2.0.N: Navigation & Layout Overhaul**
+
+1.  **Task V2.N1: Implement Bottom Tab Navigation**
+    *   **Goal:** Create a main app layout with three bottom tabs: Focus, Home, Profile.
+    *   **Sub-Tasks:**
+        *   N1.1: Refactor `app/_layout.tsx` and `app/(tabs)/_layout.tsx` to define the three tabs.
+        *   N1.2: **Focus Tab:** The existing `app/(tabs)/index.tsx` will serve as the content for the "Focus" tab. Ensure it integrates correctly.
+        *   N1.3: **Home Tab:** Create a new screen file (e.g., `app/(tabs)/home.tsx`) as a placeholder for the "Home" content.
+        *   N1.4: **Profile Tab:** Create a new screen file (e.g., `app/(tabs)/profile.tsx`) as a placeholder for the "Profile" content.
+        *   N1.5: Style the tab bar (icons, labels, active/inactive states) to match the app's dark theme. Use appropriate icons (e.g., from `@expo/vector-icons`).
+    *   **Success Criteria:** The app displays a bottom tab navigator with "Focus", "Home", and "Profile" tabs. Each tab navigates to its respective screen. The Focus tab shows the existing timer UI.
+
+2.  **Task V2.N2: Direct to Home for Logged-In Users**
+    *   **Goal:** Ensure that authenticated users who have completed onboarding are taken directly to the main app screen (Focus tab) on app launch.
+    *   **Sub-Tasks:**
+        *   N2.1: Review and refine the navigation logic in `app/_layout.tsx` (specifically `useProtectedRoute`).
+        *   N2.2: Ensure that if `session` exists and `profile.onboarding_completed` is true, the user is routed to `/(tabs)/` (or `/(tabs)/index`).
+    *   **Success Criteria:** Logged-in, onboarded users bypass auth/onboarding screens and land directly on the Focus tab.
+
+3.  **Task V2.N3: Skeleton Loaders / Smooth Transitions (Optional Initial Pass)**
+    *   **Goal:** Improve perceived performance during screen transitions.
+    *   **Sub-Tasks:**
+        *   N3.1: Identify key screens where data fetching might cause delays (e.g., initial load of Home or Profile tabs).
+        *   N3.2: Implement basic skeleton loaders for these screens.
+        *   N3.3: (Optional) Explore simple fade animations for screen transitions if `expo-router` allows easy configuration.
+    *   **Success Criteria:** Transitions feel smoother, especially to data-heavy screens, with placeholders visible during load.
+
+**V2.0.F: Focus Session Flow Enhancements**
+
+1.  **Task V2.F1: New Session End Screen**
+    *   **Goal:** Replace or augment the current post-session modals with a dedicated screen or a more comprehensive modal.
+    *   **Sub-Tasks:**
+        *   F1.1: Design the layout for the new end screen/modal. It should include: Total time, XP earned, and "Return Home" / "Start another session" buttons.
+        *   F1.2: Create a new component for this screen/modal (e.g., `components/SessionCompleteScreen.tsx`).
+        *   F1.3: Modify the timer completion logic in `app/(tabs)/index.tsx` to display this new screen/modal instead of/after the current modal queue.
+        *   F1.4: Ensure "Return Home" navigates to Home tab (or resets timer view) and "Start another session" resets the timer for a new session.
+    *   **Success Criteria:** After a session, a new screen/modal appears showing session stats and navigation options. The old post-session modal queue (`SessionSummaryModal`, `StreakIncreaseModal`, `LevelUpModal`) might be triggered *after* this new screen or integrated into it.
+
+2.  **Task V2.F2: Animated XP Gain Feedback**
+    *   **Goal:** Add more engaging visual feedback when XP is gained.
+    *   **Sub-Tasks:**
+        *   F2.1: Explore animation libraries (e.g., `react-native-reanimated`, `Lottie`) for effects like progress bar filling, sparkles, or confetti.
+        *   F2.2: Integrate a subtle animation that plays when XP is awarded (e.g., on the new Session End Screen, or as part of the XP bar in the `LevelingSystem` modal if that's still shown).
+    *   **Success Criteria:** XP gain is accompanied by a satisfying visual animation.
+
+**V2.0.B: Bug Fixes**
+
+1.  **Task V2.B1: Fix XP Calculation Bug**
+    *   **Goal:** Ensure XP is always calculated correctly after a session.
+    *   **Sub-Tasks:**
+        *   B1.1: Thoroughly review the `award-xp` Supabase function and client-side calls to it.
+        *   B1.2: Add extensive logging and testing for various session durations and modes (Easy/Hard).
+        *   B1.3: Identify and fix discrepancies in XP calculation.
+    *   **Success Criteria:** XP awards are consistently accurate as per PRD rules (1XP/2.5min Easy, 2XP/2.5min Hard, full session completion).
+
+2.  **Task V2.B2: Resolve Resurrection Token Logic**
+    *   **Goal:** Ensure Supabase session management (including refresh/resurrection tokens) works reliably.
+    *   **Sub-Tasks:**
+        *   B2.1: Research Supabase "resurrection token" behavior and potential issues.
+        *   B2.2: Monitor app for any errors related to token refresh or invalid sessions.
+        *   B2.3: Ensure Supabase client is initialized correctly and `onAuthStateChange` is handled robustly.
+    *   **Success Criteria:** No user-facing errors or unexpected logouts due to session token issues.
+
+3.  **Task V2.B3: Fix localStorage Refresh Issue (Unexpected Logouts)**
+    *   **Goal:** Prevent users from being logged out unexpectedly.
+    *   **Sub-Tasks:**
+        *   B3.1: Investigate how and where session information is being stored/retrieved on the client (AsyncStorage is typical for Expo).
+        *   B3.2: Ensure client-side session persistence is compatible with Supabase's session management.
+        *   B3.3: Identify scenarios that trigger the unexpected logout and address the root cause.
+    *   **Success Criteria:** Users remain logged in reliably across app uses and restarts, unless they explicitly log out.
+
+4.  **Task V2.B4: Fix Final Onboarding Screen Getting Stuck**
+    *   **Goal:** Ensure the final screen of the onboarding flow does not get stuck and transitions correctly to the main app.
+    *   **Sub-Tasks:**
+        *   B4.1: Investigate the state management and navigation logic at the end of the onboarding process (`app/onboarding/finalScreen.tsx` or similar).
+        *   B4.2: Identify conditions that cause the screen to hang or not transition.
+        *   B4.3: Implement fixes to ensure a smooth transition to the `/(tabs)/` route after onboarding completion.
+        *   B4.4: Test onboarding completion thoroughly from a new user perspective.
+    *   **Success Criteria:** The final onboarding screen consistently and correctly navigates to the main app (Focus tab) upon completion.
+
+5.  **Task V2.B5: Fix Auth Screen Showing Briefly for Logged-In Users**
+    *   **Goal:** Prevent the authentication screen from flashing or briefly appearing when the app loads if a user is already logged in.
+    *   **Sub-Tasks:**
+        *   B5.1: Review the initial route determination in `app/_layout.tsx` and the `useProtectedRoute` hook.
+        *   B5.2: Ensure that session and profile data are checked efficiently before rendering any UI that might default to the auth screen.
+        *   B5.3: Optimize the loading sequence to prioritize displaying a splash screen or a generic loading state until the auth status is definitively determined and the correct route (tabs or auth) is loaded.
+    *   **Success Criteria:** Logged-in users are taken directly to the main app content (or a loading state placeholder for it) without any flash of the authentication screens.
+
+**V2.0.U: UI/UX Polish**
+
+1.  **Task V2.U1: Improve Text Rendering Robustness**
+    *   **Goal:** Ensure text elements across the app adapt gracefully to various device text size accessibility settings.
+    *   **Sub-Tasks:**
+        *   U1.1: Identify key text components and screens throughout the application.
+        *   U1.2: Test the app with larger and smaller system font size settings on both iOS and Android.
+        *   U1.3: Implement strategies for better text scaling, such as using `PixelRatio.getFontScale()` for dynamic adjustments, `numberOfLines` with `ellipsizeMode`, or ensuring container layouts can accommodate larger text without breaking.
+        *   U1.4: Prioritize critical information display and readability at all supported text sizes.
+    *   **Success Criteria:** Text within the app remains legible and UI layouts do not break when users have adjusted their system font size settings.
+
+### Project Status Board (Vzn v2.0)
+
+**V2.0.A: Authentication Enhancements**
+- [ ] Task V2.A1: Add SSO - Google Login
+- [ ] Task V2.A2: Add SSO - Apple Login
+- [ ] Task V2.A3: Fix "Name Undefined" Bug
+- [ ] Task V2.A4: Add Loading Indicator during Authentication
+
+**V2.0.N: Navigation & Layout Overhaul**
+- [ ] Task V2.N1: Implement Bottom Tab Navigation
+- [ ] Task V2.N2: Direct to Home for Logged-In Users
+- [ ] Task V2.N3: Skeleton Loaders / Smooth Transitions
+
+**V2.0.F: Focus Session Flow Enhancements**
+- [ ] Task V2.F1: New Session End Screen
+- [ ] Task V2.F2: Animated XP Gain Feedback
+
+**V2.0.B: Bug Fixes**
+- [ ] Task V2.B1: Fix XP Calculation Bug
+- [ ] Task V2.B2: Resolve Resurrection Token Logic
+- [ ] Task V2.B3: Fix localStorage Refresh Issue
+- [ ] Task V2.B4: Fix Final Onboarding Screen Getting Stuck
+- [ ] Task V2.B5: Fix Auth Screen Showing Briefly for Logged-In Users
+
+**V2.0.U: UI/UX Polish**
+- [ ] Task V2.U1: Improve Text Rendering Robustness
+
+### Executor's Feedback or Assistance Requests
+*(Awaiting first task assignment for Vzn v2.0)*
+
+### Lessons
+*(Existing lessons remain. New lessons will be added as Vzn v2.0 progresses)*
+*   Supabase Edge Function secret names cannot start with the reserved `SUPABASE_` prefix.
+*   Secrets required by Edge Functions (like `SUPABASE_SERVICE_ROLE_KEY`) must be provided via Environment Variables set in the Supabase Dashboard (Project Settings -> Functions) and accessed using `Deno.env.get()`.
+*   Persistent local linter errors for Deno/remote imports in Edge Functions can often be ignored initially if the code structure is correct, prioritizing deployment to the actual runtime environment for testing.
+*   Supabase Edge Function deployment via the CLI requires Docker Desktop to be installed and running.
+*   Complex components might require manual cleanup if automated edits introduce persistent linter errors, especially with styles.
+*   Linter errors referencing styles often require removing the *usage* in JSX, not just the definition in `StyleSheet.create`.
+*   When calling backend functions from the frontend, remember to handle both success (refresh local state/context) and error cases (user feedback).
+*   Some components might accept a `style` prop for layout even if not explicitly typed. Use `// @ts-ignore` as a workaround if visual testing confirms it works, but the linter flags it. **(Update: The proper fix is to add `style?: ViewStyle` to the component's Props type).**
+*   Ensure `await fetchProfile()` actually returns the updated data and the calling code uses the *returned* value, not the potentially stale state from `useContext`, especially after async operations.
+*   Streak logic requires careful handling of timestamps (UTC comparison) and only updating `last_session_timestamp` on *qualifying* sessions (>= 25 min) to avoid blocking subsequent streak increments within the same day.
+*   Directly bypassing Supabase auth steps (like `verifyOtp`) can lead to inconsistent session states recognized by the client library and `onAuthStateChange` listeners. Prefer using standard auth methods if possible.
+*   Setting passwords for existing OTP-only users might require admin privileges (e.g., via Edge Function with Service Role Key) if the dashboard doesn't provide a direct option.
+*   App navigation guards (`useProtectedRoute` hook in `_layout.tsx`) need to correctly handle re-evaluation when dependent state (like `profile` or `session`) changes after the initial render/navigation, especially following actions like onboarding completion.
+*   Supabase CLI commands (`invoke`) might have version-specific syntax or require specific project linking context; `curl` can be a reliable alternative for invoking functions directly.
+
 </rewritten_file>
