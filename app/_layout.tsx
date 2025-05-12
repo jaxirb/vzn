@@ -7,6 +7,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Platform, View } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Linking from 'expo-linking';
 
 import { superwallService } from '@/services/superwall';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -248,44 +249,68 @@ export default function RootLayout() {
   const [loaded, fontError] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     'Inter-Light': require('../assets/fonts/Inter/static/Inter_18pt-Light.ttf'),
+    'Inter-Regular': require('../assets/fonts/Inter/static/Inter_18pt-Regular.ttf'),
     'Inter-Medium': require('../assets/fonts/Inter/static/Inter_18pt-Medium.ttf'),
+    'Inter-SemiBold': require('../assets/fonts/Inter/static/Inter_18pt-SemiBold.ttf'),
     'Inter-Bold': require('../assets/fonts/Inter/static/Inter_18pt-Bold.ttf'),
-    'ChakraPetch-Light': require('../assets/fonts/Chakra_Petch/ChakraPetch-Light.ttf'),
-    'ChakraPetch-Medium': require('../assets/fonts/Chakra_Petch/ChakraPetch-Medium.ttf'),
-    'ChakraPetch-SemiBold': require('../assets/fonts/Chakra_Petch/ChakraPetch-SemiBold.ttf'),
-    'ChakraPetch-Bold': require('../assets/fonts/Chakra_Petch/ChakraPetch-Bold.ttf'),
   });
 
-  // Handle font loading errors
+  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (fontError) throw fontError;
   }, [fontError]);
 
   // Initialize Superwall
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      console.log('Initializing Superwall - Outer');
-      superwallService.initialize();
-    }
+    console.log('Initializing Superwall - Outer');
+    superwallService.initialize();
   }, []);
 
-  // Only render the main layout AFTER fonts are loaded
-  // Splash screen is handled inside InnerLayout based on navigation resolution
+  // Handle incoming deep links for OAuth
+  useEffect(() => {
+    const handleDeepLink = (event: Linking.EventType) => {
+      const url = typeof event === 'string' ? event : event.url;
+      console.log('[RootLayout DeepLink] Received URL:', url);
+      if (url.startsWith('myapp://oauth/callback')) {
+        // Check if the URL contains an access_token or error, indicating an OAuth redirect
+        if (url.includes('#access_token=') || url.includes('?error=')) {
+          console.log('[RootLayout DeepLink] OAuth callback URL detected. Supabase onAuthStateChange should handle this.');
+          // Supabase client's onAuthStateChange is designed to pick up session from URL upon app focus/load.
+        }
+      }
+    };
+
+    // Listen for incoming links
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check initial URL
+    Linking.getInitialURL().then(initialUrl => {
+      if (initialUrl) {
+        console.log('[RootLayout DeepLink] Initial URL:', initialUrl);
+        handleDeepLink({ url: initialUrl });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Show the layout only after fonts are loaded
   if (!loaded) {
-      console.log('[RootLayout Outer] Fonts not loaded yet, rendering null.')
-      return null; // Or a minimal loading indicator if preferred
+    console.log('[RootLayout Outer] Fonts not loaded yet, rendering null.');
+    return null;
   }
 
   console.log('[RootLayout Outer] Fonts loaded, rendering Providers and InnerLayout.');
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ProfileProvider>
-        <OnboardingProvider>
-          {/* Render the InnerLayout which contains the ThemeProvider and Stack */}
-          <InnerLayout /> 
-        </OnboardingProvider>
-      </ProfileProvider>
-    </GestureHandlerRootView>
+    <ProfileProvider>
+      <OnboardingProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <InnerLayout />
+        </GestureHandlerRootView>
+      </OnboardingProvider>
+    </ProfileProvider>
   );
 }

@@ -1029,45 +1029,66 @@ Vzn v2.0 aims to significantly enhance the user experience, focusing on increasi
 
 ### High-level Task Breakdown (Vzn v2.0)
 
-*(Tasks are based on `prd2.0.md`. Executor to proceed one major feature group or bugfix at a time.)*
+*(Tasks are based on \`prd2.0.md\`. Executor to proceed one major feature group or bugfix at a time.)*
+The first phase of Vzn v2.0 development will focus on foundational Authentication Enhancements (Tasks V2.A1-V2.A4) and the new Tab-based Navigation system (Tasks V2.N1-V2.N2).
 
 **V2.0.A: Authentication Enhancements**
 
 1.  **Task V2.A1: Add SSO - Google Login**
     *   **Goal:** Implement "Sign in with Google" functionality.
     *   **Sub-Tasks:**
-        *   A1.1: Configure Google Cloud project and OAuth credentials.
-        *   A1.2: Integrate Supabase Google Auth provider.
-        *   A1.3: Implement Google Sign-In button and flow on the client-side (likely in `app/(auth)/index.tsx`).
-        *   A1.4: Test sign-up and login with new Google accounts.
-        *   A1.5: Test linking Google to existing accounts (if applicable/desired).
-    *   **Success Criteria:** Users can successfully sign up and log in using their Google accounts. New profiles are created correctly in Supabase.
+        *   A1.1: **User Prerequisite:** Configure Google Cloud project and OAuth credentials (client ID for Expo/React Native). The Executor will assume this is completed by the user.
+        *   A1.2: **User Prerequisite:** Enable and configure the Google Auth provider in the Supabase Dashboard, including adding the Client ID and Client Secret, and specifying the redirect URI. The Executor will assume this is completed by the user.
+        *   A1.3: **Client-side Implementation:** 
+            *   Install and configure necessary libraries (`expo-web-browser`). - *Done.*
+            *   Add a "Sign in with Google" button to the UI. - *Done in `app/(auth)/index.tsx`.*
+            *   Initiate the Google sign-in flow using `supabase.auth.signInWithOAuth` and `WebBrowser.openAuthSessionAsync`. `redirectTo` URI configured to `myapp://oauth/callback`. - *Done in `app/(auth)/index.tsx`.*
+            *   Implemented direct parsing of `access_token` and `refresh_token` from the `WebBrowser.openAuthSessionAsync` result URL fragment and calling `supabase.auth.setSession()` in `app/(auth)/index.tsx`. - **Verified Working by User.**
+        *   A1.4: **Handle OAuth Callback and Token Storage:** 
+            *   Supabase `onAuthStateChange` listener in `ProfileContext.tsx` correctly processes the session established by `supabase.auth.setSession()`. - **Verified Working by User.**
+            *   **Status:** Core Google Sign-In client-side flow and callback handling are now **COMPLETE**.
+        *   A1.5: **Testing (Deferred/Optional):** Define and test the flow for linking a Google account to an existing Vzn account (if this is a requirement for V2.0 MVP - clarify with user).
+    *   **Success Criteria:** Users can successfully sign up and log in using their Google accounts. New profiles are created correctly in Supabase, and the user is navigated to the appropriate screen post-authentication. - **Achieved for basic sign-up/login.**
 
 2.  **Task V2.A2: Add SSO - Apple Login**
     *   **Goal:** Implement "Sign in with Apple" functionality.
     *   **Sub-Tasks:**
-        *   A2.1: Configure Apple Developer account, App ID, Services ID, and private key for "Sign in with Apple".
-        *   A2.2: Integrate Supabase Apple Auth provider.
-        *   A2.3: Implement Apple Sign-In button and flow on the client-side.
-        *   A2.4: Test sign-up and login with new Apple accounts.
-        *   A2.5: Test linking Apple to existing accounts (if applicable/desired).
-    *   **Success Criteria:** Users can successfully sign up and log in using their Apple accounts. New profiles are created correctly in Supabase.
+        *   A2.1: **User Prerequisite:** Configure Apple Developer account: App ID, Services ID, and a private key for "Sign in with Apple". - *User reports configuration complete.*
+        *   A2.2: **User Prerequisite:** Enable and configure the Apple Auth provider in the Supabase Dashboard (Bundle ID, Services ID, Team ID, Key ID, generated Client Secret JWT, Callback URL). - *User reports configuration complete.*
+        *   A2.3: **Client-side Implementation:**
+            *   Install and configure `expo-apple-authentication`. - *Done.*
+            *   Add an "Sign in with Apple" button to `app/(auth)/index.tsx` (conditionally rendered for iOS). - *Done.*
+            *   Implement the Apple Sign-In flow using `expo-apple-authentication` to get the identity token. - *Done in `signInWithApple` function.*
+            *   Use the identity token to sign in with Supabase: `supabase.auth.signInWithIdToken({ provider: 'apple', token: identityToken })`. - *Done in `signInWithApple` function.*
+            *   Handle successful authentication, session creation, and potential errors. - *Implemented in `signInWithApple` function.*
+        *   A2.4: **Testing (Executor/User):** 
+            *   **Next Step:** User to build for/run on iOS device and test Apple Sign-In flow. Verify new user creation/login and profile data in Supabase. Check console logs for success/error messages. *Styling of Apple button updated to match Google button dimensions.*
+        *   A2.5: **Testing (Deferred/Optional):** Define and test the flow for linking an Apple account to an existing Vzn account (if this is a requirement for V2.0 MVP - clarify with user).
+    *   **Success Criteria:** Users can successfully sign up and log in using their Apple accounts on supported platforms. New profiles are created correctly in Supabase, and the user is navigated appropriately.
 
 3.  **Task V2.A3: Fix "Name Undefined" Bug**
-    *   **Goal:** Ensure user's name/display name is correctly captured and stored/displayed after sign-up, regardless of auth method.
+    *   **Goal:** Ensure user's name/display name is correctly captured and stored/displayed after sign-up or first login, regardless of auth method.
     *   **Sub-Tasks:**
-        *   A3.1: Investigate current profile creation logic (Supabase trigger `create_profile_for_new_user`, onboarding flow) to see where name handling might be missing or failing, especially for OTP/SSO.
-        *   A3.2: Ensure name is fetched from SSO providers if available.
-        *   A3.3: If name is not available from auth provider, ensure onboarding flow correctly prompts for and saves the name to the `profiles` table.
-        *   A3.4: Verify name is consistently displayed in UI where appropriate (e.g., Account screen).
-    *   **Success Criteria:** User's name is no longer undefined after signup. It's either captured from SSO or through the onboarding process and stored in `profiles`.
+        *   A3.1: **Investigation:** 
+            *   Review the `create_profile_for_new_user` Supabase trigger. Check if it attempts to populate `display_name` or a similar field from `NEW.raw_user_meta_data`.
+            *   Examine client-side Supabase calls for sign-up/sign-in (OTP, and new SSO methods once implemented). Determine if user's name, when available from the provider, is being passed in the `options.data` field which then populates `raw_user_meta_data`.
+            *   Check the onboarding flow (`app/onboarding/`) to see if it prompts for a name and how it updates the `profiles` table.
+        *   A3.2: **Implementation (SSO Name Capture):** 
+            *   For Google & Apple sign-in, ensure the user's full name or display name, if provided by the OAuth response, is included in the `options.data` when calling `signInWithOAuth` or passed appropriately so it becomes part of `raw_user_meta_data` for the trigger.
+            *   Update the `create_profile_for_new_user` trigger (if necessary) to extract the name from `NEW.raw_user_meta_data.name` (or similar path based on provider data) and insert it into the `display_name` column of the `public.profiles` table.
+        *   A3.3: **Implementation (Onboarding Fallback):** If a name is *not* available from the auth provider (e.g., some OTP flows, or if user denies permission), ensure the existing onboarding process (`app/onboarding/*`) reliably prompts for and saves a `display_name` to the `profiles` table.
+        *   A3.4: **Verification:** Test sign-up with Google, Apple, and OTP. Verify `display_name` (or equivalent) in the `profiles` table is populated correctly. Verify the name is displayed where expected in the UI (e.g., future Profile screen).
+    *   **Success Criteria:** User's `display_name` in the `profiles` table is consistently populated either from the SSO provider during sign-up or via the onboarding flow. The "name undefined" issue is resolved.
 
 4.  **Task V2.A4: Add Loading Indicator during Authentication**
     *   **Goal:** Provide visual feedback to the user while authentication processes are in progress.
     *   **Sub-Tasks:**
-        *   A4.1: Implement a loading state (e.g., `isLoading`) in the auth screens (`app/(auth)/index.tsx`, `app/(auth)/verify-otp.tsx`).
-        *   A4.2: Display a spinner or loading message when `isLoading` is true (e.g., after pressing "Sign In" and before navigation or error).
-    *   **Success Criteria:** A loading indicator is shown during auth operations, improving perceived performance.
+        *   A4.1: **State Management:** In `app/(auth)/index.tsx` (and `app/(auth)/verify-otp.tsx`), introduce a `useState` boolean variable (e.g., `isLoadingAuthentication`).
+        *   A4.2: **Trigger Loading State:** Set `isLoadingAuthentication` to `true` immediately before initiating any asynchronous Supabase auth calls (e.g., `signInWithOtp`, `signInWithPassword`, `signInWithOAuth`, `signInWithIdToken`). Set it to `false` in the `finally` block of the promise or after success/error handling.
+        *   A4.3: **Visual Feedback:** 
+            *   Conditionally render an `ActivityIndicator` overlay or inline spinner when `isLoadingAuthentication` is `true`.
+            *   Disable form input fields and submission buttons while `isLoadingAuthentication` is `true` to prevent multiple submissions.
+    *   **Success Criteria:** A clear loading indicator is shown on auth screens during sign-in/sign-up operations, and interactive elements are appropriately disabled, improving user experience.
 
 **V2.0.N: Navigation & Layout Overhaul**
 
@@ -1171,48 +1192,26 @@ Vzn v2.0 aims to significantly enhance the user experience, focusing on increasi
 ### Project Status Board (Vzn v2.0)
 
 **V2.0.A: Authentication Enhancements**
-- [ ] Task V2.A1: Add SSO - Google Login
-- [ ] Task V2.A2: Add SSO - Apple Login
-- [ ] Task V2.A3: Fix "Name Undefined" Bug
-- [ ] Task V2.A4: Add Loading Indicator during Authentication
-
-**V2.0.N: Navigation & Layout Overhaul**
-- [ ] Task V2.N1: Implement Bottom Tab Navigation
-- [ ] Task V2.N2: Direct to Home for Logged-In Users
-- [ ] Task V2.N3: Skeleton Loaders / Smooth Transitions
-
-**V2.0.F: Focus Session Flow Enhancements**
-- [ ] Task V2.F1: New Session End Screen
-- [ ] Task V2.F2: Animated XP Gain Feedback
-
-**V2.0.B: Bug Fixes**
-- [ ] Task V2.B1: Fix XP Calculation Bug
-- [ ] Task V2.B2: Resolve Resurrection Token Logic
-- [ ] Task V2.B3: Fix localStorage Refresh Issue
-- [ ] Task V2.B4: Fix Final Onboarding Screen Getting Stuck
-- [ ] Task V2.B5: Fix Auth Screen Showing Briefly for Logged-In Users
-
-**V2.0.U: UI/UX Polish**
-- [ ] Task V2.U1: Improve Text Rendering Robustness
-
+- [x] Task V2.A1: Add SSO - Google Login
+  - [x] A1.1: User Prerequisite (Google Cloud Project & OAuth Credentials)
+  - [x] A1.2: User Prerequisite (Supabase Google Auth Provider Config)
+  - [x] A1.3: Client-side Implementation (Button, Supabase OAuth flow with WebBrowser, Token Parsing)
+  - [x] A1.4: OAuth Callback Handling & Session Establishment (`setSession` & `onAuthStateChange`)
+  - [ ] A1.5: Testing (Linking existing accounts - Optional)
+- [-] Task V2.A2: Add SSO - Apple Login
+  - [x] A2.1: User Prerequisite (Apple Developer Account & Service Config) - *User reported complete*
+  - [x] A2.2: User Prerequisite (Supabase Apple Auth Provider Config) - *User reported complete*
+  - [x] A2.3: Client-side Implementation (Button, Apple Sign-In flow, Supabase Integration) - *UI for button updated.*
+  - [ ] A2.4: Testing (Sign-up, Login, Profile Creation via Apple)
+  - [ ] A2.5: Testing (Linking existing accounts - Optional)
+// ... existing code ...
 ### Executor's Feedback or Assistance Requests
-*(Awaiting first task assignment for Vzn v2.0)*
+*(User is re-testing Google Sign-In on the iPhone development build after adding a Linking event listener in `app/_layout.tsx` to debug OAuth callback handling.)*
 
-### Lessons
-*(Existing lessons remain. New lessons will be added as Vzn v2.0 progresses)*
-*   Supabase Edge Function secret names cannot start with the reserved `SUPABASE_` prefix.
-*   Secrets required by Edge Functions (like `SUPABASE_SERVICE_ROLE_KEY`) must be provided via Environment Variables set in the Supabase Dashboard (Project Settings -> Functions) and accessed using `Deno.env.get()`.
-*   Persistent local linter errors for Deno/remote imports in Edge Functions can often be ignored initially if the code structure is correct, prioritizing deployment to the actual runtime environment for testing.
-*   Supabase Edge Function deployment via the CLI requires Docker Desktop to be installed and running.
-*   Complex components might require manual cleanup if automated edits introduce persistent linter errors, especially with styles.
-*   Linter errors referencing styles often require removing the *usage* in JSX, not just the definition in `StyleSheet.create`.
-*   When calling backend functions from the frontend, remember to handle both success (refresh local state/context) and error cases (user feedback).
-*   Some components might accept a `style` prop for layout even if not explicitly typed. Use `// @ts-ignore` as a workaround if visual testing confirms it works, but the linter flags it. **(Update: The proper fix is to add `style?: ViewStyle` to the component's Props type).**
-*   Ensure `await fetchProfile()` actually returns the updated data and the calling code uses the *returned* value, not the potentially stale state from `useContext`, especially after async operations.
-*   Streak logic requires careful handling of timestamps (UTC comparison) and only updating `last_session_timestamp` on *qualifying* sessions (>= 25 min) to avoid blocking subsequent streak increments within the same day.
-*   Directly bypassing Supabase auth steps (like `verifyOtp`) can lead to inconsistent session states recognized by the client library and `onAuthStateChange` listeners. Prefer using standard auth methods if possible.
-*   Setting passwords for existing OTP-only users might require admin privileges (e.g., via Edge Function with Service Role Key) if the dashboard doesn't provide a direct option.
-*   App navigation guards (`useProtectedRoute` hook in `_layout.tsx`) need to correctly handle re-evaluation when dependent state (like `profile` or `session`) changes after the initial render/navigation, especially following actions like onboarding completion.
-*   Supabase CLI commands (`invoke`) might have version-specific syntax or require specific project linking context; `curl` can be a reliable alternative for invoking functions directly.
-
-</rewritten_file>
+**Task V2.A1 (Google SSO) Update:**
+*   Implemented Google Sign-In flow using `WebBrowser.openAuthSessionAsync`.
+*   Added detailed logging in `app/(auth)/index.tsx`.
+*   Added `Linking` event listener in `app/_layout.tsx` to explicitly catch and log OAuth redirect URLs.
+*   **Current Focus**: Verifying that the Supabase client (`onAuthStateChange` in `ProfileContext`) correctly establishes the session after the app is re-opened by the `myapp://oauth/callback#tokens...` deep link.
+*   User to test on iPhone and provide new logs.
+// ... existing code ...
